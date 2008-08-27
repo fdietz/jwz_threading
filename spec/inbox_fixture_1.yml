@@ -1,0 +1,22 @@
+# complete example thread without any empty message nodes
+a:
+  subject: a
+  references:
+b:
+  subject: b
+  references: a
+c:
+  subject: c
+  references:
+d:
+  subject: d
+  references: b  
+e:
+  subject: e
+  references: d
+f:
+  subject: f
+  references: a
+
+
+  
