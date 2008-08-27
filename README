@@ -1,6 +1,7 @@
 = jwz_threading
 
-This is jwz_threading, a library implementing the JWZ E-Mail threading algorithm as explained by Jamie Zawinski (http://www.jwz.org/doc/threading.html).
+This is jwz_threading, a library implementing the JWZ E-Mail threading 
+algorithm as described by Jamie Zawinski (http://www.jwz.org/doc/threading.html).
 
 = Requirements
 Ruby 1.8.* (not yet tested on Ruby 1.9.*)
@@ -16,9 +17,9 @@ The documentation is in RDoc format in the doc subdirectory.
 
 = Status
 
-This package is currently considered ALPHA and therefore considered to be changed heavily in the near future.
-
-I very much appreciate suggestions and comments. 
+This package is currently considered ALPHA and therefore considered to be 
+changed heavily in the near future. I very much appreciate suggestions 
+and comments. 
 
 = Tests
 
