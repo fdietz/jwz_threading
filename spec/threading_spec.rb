@@ -12,6 +12,27 @@ describe "JWZ threading algorithm" do
     File.dirname(__FILE__) + file
   end
   
+  # create message hash of yaml file
+  # hash key is message_id
+  # hash value the message with subject, message and references attributes
+  class Parser
+    def parse_inbox(path)
+      yaml = File.open(path) {|f| YAML.load(f)}
+
+      messages = Hash.new
+      yaml.each do |key, value|
+        ref = value["references"]
+        if !ref 
+          ref = []
+        end   
+        m = Message.new(value["subject"], key, ref)
+        messages[key] = m
+      end
+
+      messages
+    end
+  end
+  
   def parse_messages(file)
     parser = Parser.new
     messages = parser.parse_inbox path_helper("/#{file}")
@@ -35,7 +56,7 @@ describe "JWZ threading algorithm" do
     
     parent_container = @thread.create_container_1A(id_table, message_b.message_id, message_b)
     
-    id_table.size.should == 2
+    id_table.should have(2).items
     id_table["b"].message.message_id.should == "b"
     id_table["b"].message.message_id.should == "b"
     
@@ -54,7 +75,7 @@ describe "JWZ threading algorithm" do
     id_table["b"] = container_b
     
     parent_container = @thread.create_container_1A(id_table, message_b.message_id, message_b)
-    id_table.size.should == 2
+    id_table.should have(2).items
     id_table["b"].should == parent_container
   end
   
@@ -67,12 +88,12 @@ describe "JWZ threading algorithm" do
     messages["e"] = Message.new("subject", "e", "d")
  
     id_table = @thread.create_id_table(messages)
-    id_table.size.should == 5
-    id_table["a"].children.size.should == 3
+    id_table.should have(5).items
+    id_table["a"].children.should have(3).items
     id_table["a"].children[0].message.message_id == "b"
     id_table["a"].children[2].message.message_id == "d"
     id_table["a"].children[2].children[0].message.message_id == "e"
-    id_table["d"].children.size == 1
+    id_table["d"].children.should have(1).item
     id_table["d"].children[0].message.message_id == "e"
   end
   
@@ -80,15 +101,15 @@ describe "JWZ threading algorithm" do
     messages = parse_messages 'inbox_fixture_1.yml'
     id_table = @thread.create_id_table(messages)
     
-    id_table["a"].children.size.should == 2
+    id_table["a"].children.should have(2).items
     id_table["a"].children[0].message.message_id.should == "b"
     id_table["a"].children[1].message.message_id.should == "f"
-    id_table["b"].children.size.should == 1
+    id_table["b"].children.should have(1).item
     id_table["b"].children[0].message.message_id.should == "d"
-    id_table["c"].children.size.should == 0
-    id_table["d"].children.size.should == 1
+    id_table["c"].children.should be_empty
+    id_table["d"].children.should have(1).item
     id_table["d"].children[0].message.message_id.should == "e"
-    id_table["e"].children.size.should == 0
+    id_table["e"].children.should be_empty
     
     #@debug.print_hash(id_table)  
   end
@@ -98,7 +119,7 @@ describe "JWZ threading algorithm" do
     id_table = @thread.create_id_table(messages)
     root = @thread.create_root_hierachy_2(id_table)
    
-    root.children.size.should == 2
+    root.children.should have(2).items
     root.children[0].message.message_id.should == "a" 
     root.children[1].message.message_id.should == "c"
     
@@ -112,7 +133,7 @@ describe "JWZ threading algorithm" do
     
     root = @thread.create_root_hierachy_2(id_table)
     
-    root.children.size.should == 3
+    root.children.should have(3).items
     root.children[0].message.message_id.should == "a" 
     root.children[1].message.message_id.should == "c"
     root.children[2].message.message_id.should == "g"

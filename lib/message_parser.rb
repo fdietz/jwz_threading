@@ -25,4 +25,8 @@ class MessageParser
     subject
   end
   
+  def normalize_message_id(message_id)
+    raise RuntimeError
+  end
+  
 end
