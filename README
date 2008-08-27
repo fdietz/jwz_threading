@@ -1,0 +1,57 @@
+= jwz_threading
+
+This is jwz_threading, a library implementing the JWZ E-Mail threading algorithm as explained by Jamie Zawinski (http://www.jwz.org/doc/threading.html).
+
+= Requirements
+Ruby 1.8.* (not yet tested on Ruby 1.9.*)
+
+Only tested on OS X
+
+= Documentation
+
+The documentation is in RDoc format in the doc subdirectory.
+
+= Install
+...
+
+= Status
+
+This package is currently considered ALPHA and therefore considered to be changed heavily in the near future.
+
+I very much appreciate suggestions and comments. 
+
+= Tests
+
+All tests can be found in /spec directory. Using RSpec here.
+
+= Contact
+
+Frederik Dietz
+http://fdietz.wordpress.com
+fdietz@gmail.com 
+
+= License
+
+The MIT License
+
+Copyright (c) 2008 Frederik Dietz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
