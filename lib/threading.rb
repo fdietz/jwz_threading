@@ -19,13 +19,20 @@ class Container
   end
   
   def is_dummy
-    @message == nil
+    @message.nil?
   end
   
   def add_child(child)
-    if child.parent != nil
+    if not child.parent.nil?
       child.parent.remove_child(child)
     end
+    
+    counter = 0
+    @children.each do |c|
+      counter += 1
+    end
+    
+    puts "add_child: #{self.object_id}:##{counter}"
     
     @children << child
     child.parent = self
@@ -36,15 +43,22 @@ class Container
     child.parent = nil
   end
   
-  def has_descendant(container)
+  def has_descendant(container, level = 0)
+    #puts "has_descendant: #{self.object_id}:#{container.children.size}:#{level}"
     if self == container
       return true
     end
      
+    #puts "- has_descendant: #{self.object_id}:#{container.children.size}:#{level}"
+    if @children.size == 0 
+      return false
+    end
+    
+    level = level + 1
     @children.each do |c|
       if c == container 
         return true
-      elsif c.has_descendant(container)
+      elsif c.has_descendant(container, level)
         return true
       end    
     end
@@ -55,12 +69,26 @@ end
 
 class Message
   attr_accessor :subject, :message_id, :references
-
+  attr_accessor :from
+  
   def initialize(subject, message_id, references)
     @subject = subject;
     @message_id = message_id
     @references = references
+    @from = ""
   end
+end
+
+class MessageFactory
+  
+  def self.create(subject, message_id, references)
+    if references.nil?
+      references = ""
+    end
+    
+    Message.new(subject, message_id, references)
+  end
+  
 end
 
 class Threading

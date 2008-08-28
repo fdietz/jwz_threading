@@ -7,7 +7,7 @@ class ThreadingDebug
       children.each do |child|
         indent.times {print " "}
         unless child.is_dummy
-          print "+- #{child.message.message_id}:#{child.message.subject}" 
+          print "+- #{child.message.message_id}:#{child.message.from}:#{child.message.subject}" 
           unless child.children.size == 0 
             print "(#{child.children.size}) \n"
           else
@@ -45,7 +45,7 @@ class ThreadingDebug
     puts "------------"
     root.children.each do |container|
       unless container.message == nil
-        print "#{container.message.message_id}:#{container.message.subject}"
+        print "#{container.message.message_id}:#{container.message.from}:#{container.message.subject}"
       else
         print "#{container.message.message_id}"
       end
