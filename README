@@ -16,7 +16,7 @@ http://www.jwz.org/doc/draft-ietf-imapext-thread-12.txt
 Ruby 1.8.* (not yet tested on Ruby 1.9.*)
 
 Requires the following Ruby gems:
-* Logger (http://www.ruby-doc.org/stdlib/libdoc/logger/rdoc/index.html)
+* Logger (http://logging.rubyforge.org)
 * TMail (http://tmail.rubyforge.org)
 
 Only tested on OS X
