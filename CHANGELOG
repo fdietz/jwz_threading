@@ -1,0 +1,7 @@
+2008-08-31 Frederik Dietz <fdietz@gmail.com>
+  
+  * added CHANGELOG, MIT-LICENSE, setup.rb
+  * added more documentation to README
+  * added Rakefile with spec, spec_html, rdoc, gem, clean, clobber support
+  * added spec_helper.rb to cleanup includes of spec files
+  

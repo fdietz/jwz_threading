@@ -1,9 +1,4 @@
-#require 'rubygems'
-#require 'spec'
-
-require 'lib/threading.rb'
-require 'lib/threading_debug.rb'
-require 'lib/message_parser.rb'
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
 
 describe "JWZ threading algorithm" do

@@ -1,4 +1,4 @@
-require 'lib/message_parser.rb'
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe "Message Parser" do
 

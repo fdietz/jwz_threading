@@ -1,62 +1,93 @@
 = jwz_threading
 
+Website: http://fdietz.wordpress.com/projects
+
 This is jwz_threading, a library implementing the JWZ E-Mail threading 
 algorithm as described by Jamie Zawinski (http://www.jwz.org/doc/threading.html).
 
+It is a small ruby library which lets you order a list of E-Mails by conversation.
+That is, grouping messages together in parent/child relationships based on which 
+messages are replies to which others.
+
 There is an IMAP extension Internet Draft available which decribes
 the same here:
-http://www.jwz.org/doc/draft-ietf-imapext-thread-12.txt
+ http://www.jwz.org/doc/draft-ietf-imapext-thread-12.txt
 
-= Requirements
+== Requirements
 Ruby 1.8.* (not yet tested on Ruby 1.9.*)
 
 Only tested on OS X
 
-= Documentation
+== Documentation
 
-The documentation is in RDoc format in the doc subdirectory.
+The documentation is in RDoc format in the doc/rdoc subdirectory.
 
-= Install
-...
+To generate new rdocs, type this:
 
-= Status
+    $ rake rdoc
 
-This package is currently considered ALPHA and therefore considered to be 
+== Install
+
+- Using ruby gem
+
+Type this (You might needs super user privileges):
+
+    $ gem install jwz_threading
+
+ on Mac OS X:
+
+    $ sudo gem install jwz_threading
+
+Documentation for gem can be found here:
+ http://www.rubygems.org/
+
+- Using setup.rb
+
+Type this (You might needs super user privileges):
+
+    $ ruby setup.rb
+
+If you want to install a program in to your home directory
+($HOME), use following instead:
+
+    $ ruby setup.rb all --prefix=$HOME
+
+Documentation for setup.rb can be round here:
+ http://i.loveruby.net/en/projects/setup/doc/usage.html
+
+== Status
+
+This package is currently ALPHA and therefore considered to be 
 changed heavily in the near future. I very much appreciate suggestions 
 and comments. 
 
-= Tests
+== Tests
 
-All tests can be found in /spec directory. Using RSpec here.
+All tests can be found in /spec directory. 
 
-= Contact
+To run all specs, type this:
+   
+     $ rake spec
 
-Frederik Dietz
-http://fdietz.wordpress.com
-fdietz@gmail.com 
+This will also automatically an rcov report in doc/rcov subdirectory.
 
-= License
+To generate an rspec html report in doc/spec subdirectory, type this:
+  
+     $ rake spec_html
 
-The MIT License
+Documentation for rspec can be found here: 
+ http://rspec.info/
+Documentation for rcov can be found here 
+ http://eigenclass.org/hiki/rcov
 
-Copyright (c) 2008 Frederik Dietz
+== Contact
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Author: Frederik Dietz
+Website: http://fdietz.wordpress.com
+E-Mail: fdietz@gmail.com 
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+== License
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+The MIT License (see MIT-LICENSE file)
 
 
