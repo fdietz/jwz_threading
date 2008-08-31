@@ -1,3 +1,2 @@
 *.log
-dbschema
-sdf
+uuid.state

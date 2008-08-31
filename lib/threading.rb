@@ -7,6 +7,13 @@ require 'rubygems'
 require 'breakpoint'
 require 'logger'
 require 'lib/threading_debug.rb'
+require 'uuid'
+
+# TODO
+# - ensure message_id, in_reply_to and references are normalized
+# - ensure no endless loop happens 
+# - re-enable subject-based algorithm
+# - ensure all dummies are prune
 
 class Container
   attr_accessor :parent, :children, :next, :message
@@ -27,13 +34,6 @@ class Container
       child.parent.remove_child(child)
     end
     
-    counter = 0
-    @children.each do |c|
-      counter += 1
-    end
-    
-    puts "add_child: #{self.object_id}:##{counter}"
-    
     @children << child
     child.parent = self
   end
@@ -44,12 +44,10 @@ class Container
   end
   
   def has_descendant(container, level = 0)
-    #puts "has_descendant: #{self.object_id}:#{container.children.size}:#{level}"
     if self == container
       return true
     end
      
-    #puts "- has_descendant: #{self.object_id}:#{container.children.size}:#{level}"
     if @children.size == 0 
       return false
     end
@@ -81,9 +79,26 @@ end
 
 class MessageFactory
   
-  def self.create(subject, message_id, references)
-    if references.nil?
-      references = ""
+  def self.create(subject, message_id, in_reply_to, references)
+    
+  
+    references = [] if references.nil?
+    in_reply_to = [] if in_reply_to.nil?
+    
+    # if there are no message-IDs in references header  
+    if references.size == 0 
+        # use the first found message-ID of the in-reply-to header instead
+        if in_reply_to.size > 0
+          references << in_reply_to[0]
+        end
+    end
+    
+    if subject.nil?
+      subject = ""
+    end
+    
+    if message_id.nil?
+      message_id = UUID.new +  "@fdietz"
     end
     
     Message.new(subject, message_id, references)
@@ -141,8 +156,8 @@ class Threading
           @logger.debug "- 1B ref_container == parent_container -> skip since we don't want create a loop!"
           next
         end
-        if prev.has_descendant(ref_container)
-        #if ref_container.has_descendant(prev)
+        #if prev.has_descendant(ref_container)
+        if ref_container.has_descendant(prev)
          @logger.debug "- 1B ref_container already has descendants!"
           next
         end
@@ -178,9 +193,13 @@ class Threading
     id_table = Hash.new
     messages.each_pair do |message_id, message|
     
+      #puts "create container 1A"
+      
       # 1A
       # create container for each message or use existing one
       parent_container = create_container_1A(id_table, message_id, message)
+      
+      #puts "create hierachy 1B"
       
       # 1B
       # for each element in the message's references field find a container  
@@ -189,35 +208,52 @@ class Threading
     id_table
   end
   
-  # recursively traverse all containers under root
-  # for each container
-  #  if it is an empty container
-  #    -> delete container
-  #  if container has no message, but does have children
-  #    -> promote its children to this level 
-  #       (do not promote them to root level, unless there is only one child) 
-  def prune_empty_containers(root)
-    root.children.each do |container|
-      if container.message == nil && container.children.empty?
+ 
+  
+  # recursively traverse all containers under root and remove dummy containers
+  def prune_empty_containers(parent)
+   
+    
+    parent.children.reverse_each do |container|
+      #for container in parent.children
+      @logger.debug "traversing #{container.object_id}"
+     
+    
+      # recursively do the same
+      prune_empty_containers(container)
+      
+      # If it is a dummy message with NO children, delete it.
+      if container.message.nil? && container.children.empty?
         # delete container
-        container.parent.remove_child(container)
-      elsif container.message == nil && !container.children.empty?
-        # promote its children to this level 
-        if container.parent == nil && container.children.size == 1
-          children = container.children
-          parent = container.parent
-          container.parent.remove_child(container)
-          children.each {|c| parent.add_child(c) } 
+        parent.remove_child(container)
+        @logger.debug "#{container.object_id }:remove dummy with no children #{container.object_id}"
+
+      # If it is a dummy message with children, delete it  
+      elsif container.message.nil? #&& ( not container.children.empty? )
+        
+        # Do not promote the children if doing so would make them
+        # children of the root, unless there is only one child.
+        if parent.parent.nil? && container.children.size == 1
+          # promote its children to current level 
+          container.children.reverse_each {|c| parent.add_child(c) } 
+          @logger.debug "#{container.object_id }:promote children to current level #{container.children.size}"
+          parent.remove_child(container)
+
+        elsif parent.parent.nil? && container.children.size > 1
+          # do not promote its children
+          @logger.debug "#{container.object_id }:do not promote children"
         else
-          children = container.children
-          parent = container.parent
-          container.parent.remove_child(container)
-          children.each {|c| parent.add_child(c) } 
+          # promote its children to current level  
+          container.children.reverse_each {|c| parent.add_child(c) } 
+          
+          @logger.debug "#{container.object_id }: promote children to current level #{container.children.size}"
+
+          parent.remove_child(container)          
         end
       end
-      prune_empty_containers(container)
-    end
+    end 
   end
+      
   
   def thread(messages)
     # create id_table
@@ -229,9 +265,11 @@ class Threading
     # discard id_table
     id_table = nil
     
+    # prune dummy containers
     prune_empty_containers(root)
     
-    subject_table = group_root_set_by_subject(root)
+    # group again this time use Subject only
+    #subject_table = group_root_set_by_subject(root)
 
     root
   end
@@ -256,8 +294,11 @@ class Threading
       end
       
       message = c.message
-
-      subject = MessageParser.new.normalize_subject(message.subject)
+      if message.nil?
+        next
+      end
+      
+      subject = MessageParser.normalize_subject(message.subject)
 
       # If the thread subject is empty, skip this message
       if subject.length == 0 
@@ -278,8 +319,8 @@ class Threading
       # - The message in the subject table is a reply or forward
       #   and the current message is not.  
       elsif ( ( not existing.is_dummy) && ( c.is_dummy || ( 
-        ( MessageParser.new.is_reply_or_forward existing.message.subject ) && 
-        ( not MessageParser.new.is_reply_or_forward message.subject ))))
+        ( MessageParser.is_reply_or_forward existing.message.subject ) && 
+        ( not MessageParser.is_reply_or_forward message.subject ))))
         subject_table[subject] = c
       end
       
@@ -301,7 +342,7 @@ class Threading
         subject = container.message.subject
       end
       
-      subject = MessageParser.new.normalize_subject(subject)
+      subject = MessageParser.normalize_subject(subject)
       
       c = subject_table[subject]
       
@@ -331,8 +372,8 @@ class Threading
       # message in the subject table is not, make the current
       # message a child of the message in the subject table (a
       # sibling of its children).            
-      elsif not MessageParser.new.is_reply_or_forward(c.message.subject) && 
-        MessageParser.new.is_reply_or_forward(container.message.subject)
+      elsif not MessageParser.is_reply_or_forward(c.message.subject) && 
+        MessageParser.is_reply_or_forward(container.message.subject)
         c.add_child(container)     
       # Otherwise, create a new dummy message and make both
       # the current message and the message in the subject

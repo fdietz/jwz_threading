@@ -18,7 +18,7 @@ class Main
     mailbox.each_port do |port|
       mail = TMail::Mail.new(port)
         
-      m = MessageFactory.create(mail.subject, mail.message_id, mail.references)
+      m = MessageFactory.create(mail.subject, mail.message_id, mail.in_reply_to, mail.references)
       m.from = mail.from
       messages[mail.message_id] = m
       #puts "parsed #{mail.subject}"

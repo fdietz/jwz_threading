@@ -1,10 +1,10 @@
 #!/user/bin/ruby
 
-# TODO: use class-level methods instead
+
 class MessageParser
         
   # Subject comparison are case-insensitive      
-  def is_reply_or_forward(subject)
+  def self.is_reply_or_forward(subject)
     pattern = /^(Re|Fwd)/i  
    
     #return pattern =~ subject
@@ -17,7 +17,7 @@ class MessageParser
   end
 
   # Subject comparison are case-insensitive  
-  def normalize_subject(subject)
+  def self.normalize_subject(subject)
     pattern = /((Re|Fwd)(\[[\d+]\])?:(\s)?)*([\w]*)/i  
     if pattern =~ subject
       return $5
@@ -25,8 +25,38 @@ class MessageParser
     subject
   end
   
-  def normalize_message_id(message_id)
-    raise RuntimeError
+
+  # return first found message-ID
+  def self.normalize_message_id(message_id)
+    # match all characters between "<" and ">"
+    pattern = /<([^<>]+)>/
+    
+    if pattern =~ message_id
+      return $1
+    elsif
+      raise ValueError, "Message does not contain a Message-ID: header"
+    end
   end
+
+  # return array containing all found message-IDs
+  def self.parse_in_reply_to(in_reply_to)
+     # match all characters between "<" and ">"
+     pattern = /<([^<>]+)>/
+
+      # returns an array for each matches, for each group
+      result = in_reply_to.scan(pattern)
+      # flatten nested array to a single array
+      result.flatten
+  end
+  
+  # return array of matched message-IDs in references header
+  def self.parse_references(references)    
+    pattern = /<([^<>]+)>/
+    # returns an array for each matches, for each group
+    result = references.scan(pattern)
+    # flatten nested array to a single array
+    result.flatten
+  end
+  
   
 end
