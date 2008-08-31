@@ -2,19 +2,22 @@
 
 Website: http://fdietz.wordpress.com/projects
 
-This is jwz_threading, a library implementing the JWZ E-Mail threading 
-algorithm as described by Jamie Zawinski (http://www.jwz.org/doc/threading.html).
-
-It is a small ruby library which lets you order a list of E-Mails by conversation.
+jwz_threading is a small ruby library which lets you order a list of E-Mails by conversation.
 That is, grouping messages together in parent/child relationships based on which 
 messages are replies to which others.
 
+The library implements the JWZ E-Mail threading algorithm as described by Jamie Zawinski (http://www.jwz.org/doc/threading.html).
+
 There is an IMAP extension Internet Draft available which decribes
 the same here:
- http://www.jwz.org/doc/draft-ietf-imapext-thread-12.txt
+http://www.jwz.org/doc/draft-ietf-imapext-thread-12.txt
 
 == Requirements
 Ruby 1.8.* (not yet tested on Ruby 1.9.*)
+
+Requires the following Ruby gems:
+* Logger (http://www.ruby-doc.org/stdlib/libdoc/logger/rdoc/index.html)
+* TMail (http://tmail.rubyforge.org)
 
 Only tested on OS X
 
@@ -30,30 +33,28 @@ To generate new rdocs, type this:
 
 - Using ruby gem
 
-Type this (You might needs super user privileges):
+  Type this (You might needs super user privileges):
 
     $ gem install jwz_threading
 
- on Mac OS X:
+  on Mac OS X:
 
     $ sudo gem install jwz_threading
 
-Documentation for gem can be found here:
- http://www.rubygems.org/
+  Documentation for gem can be found here: http://www.rubygems.org
 
 - Using setup.rb
 
-Type this (You might needs super user privileges):
+  Type this (You might needs super user privileges):
 
     $ ruby setup.rb
 
-If you want to install a program in to your home directory
-($HOME), use following instead:
+  If you want to install a program in to your home directory
+  ($HOME), use following instead:
 
     $ ruby setup.rb all --prefix=$HOME
 
-Documentation for setup.rb can be round here:
- http://i.loveruby.net/en/projects/setup/doc/usage.html
+  Documentation for setup.rb can be round here:http://i.loveruby.net/en/projects/setup/doc/usage.html
 
 == Status
 
@@ -69,22 +70,21 @@ To run all specs, type this:
    
      $ rake spec
 
-This will also automatically an rcov report in doc/rcov subdirectory.
+This will also automatically generate a rcov report in doc/rcov subdirectory.
 
 To generate an rspec html report in doc/spec subdirectory, type this:
   
      $ rake spec_html
 
-Documentation for rspec can be found here: 
- http://rspec.info/
-Documentation for rcov can be found here 
- http://eigenclass.org/hiki/rcov
+Documentation for rspec can be found here: http://rspec.info
+
+Documentation for rcov can be found here http://eigenclass.org/hiki/rcov
 
 == Contact
 
-Author: Frederik Dietz
-Website: http://fdietz.wordpress.com
-E-Mail: fdietz@gmail.com 
+* Author: Frederik Dietz
+* Website: http://fdietz.wordpress.com
+* E-Mail: fdietz@gmail.com 
 
 == License
 

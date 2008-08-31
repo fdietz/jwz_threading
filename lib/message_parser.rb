@@ -1,6 +1,5 @@
-#!/user/bin/ruby
 
-
+# MessageParser provides helpers for parsing RFC822 headers
 class MessageParser
         
   # Subject comparison are case-insensitive      

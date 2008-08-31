@@ -1,6 +1,5 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
-
 describe "JWZ threading algorithm" do
   
   def path_helper(file)
@@ -34,6 +33,7 @@ describe "JWZ threading algorithm" do
   end
   
   before(:each) do
+    Logging::Logger['Threading']
     @thread = Threading.new
     @debug = ThreadingDebug.new
     @message_parser = MessageParser.new

@@ -1,20 +1,14 @@
 #!/user/bin/ruby
-
-require 'lib/message_parser.rb'
-#require 'MessageParser'
-require 'yaml'
+  
 require 'rubygems'
 require 'breakpoint'
-require 'logger'
-require 'lib/threading_debug.rb'
 require 'uuid'
+require 'logger'
+require 'lib/threading_debug'
+require 'lib/message_parser'
 
-# TODO
-# - ensure message_id, in_reply_to and references are normalized
-# - ensure no endless loop happens 
-# - re-enable subject-based algorithm
-# - ensure all dummies are prune
 
+# Container for creation of parent/child relationship of messages 
 class Container
   attr_accessor :parent, :children, :next, :message
   
@@ -64,9 +58,9 @@ class Container
   end
 end
 
-
+# Lightweight Message for the minimal used message attributes
 class Message
-  attr_accessor :subject, :message_id, :references
+  attr_reader :subject, :message_id, :references
   attr_accessor :from
   
   def initialize(subject, message_id, references)
@@ -77,11 +71,12 @@ class Message
   end
 end
 
+# Factory for creating messages. Ensures consistent data required
+# for threading algorithm.
 class MessageFactory
   
   def self.create(subject, message_id, in_reply_to, references)
     
-  
     references = [] if references.nil?
     in_reply_to = [] if in_reply_to.nil?
     
@@ -106,16 +101,81 @@ class MessageFactory
   
 end
 
+
+#
+# Threading takes a list of RFC822 compliant emails and orders
+# them by conversation. That is, grouping messages together in 
+# parent/child relationships based on which messages are replies 
+# to which others.
+# It implements the JWZ E-Mail threading algorithm as described 
+# by Jamie Zawinski (http://www.jwz.org/doc/threading.html).
+#
+# Example usage:
+#  # use TMail or other library to create messages
+#  mail = TMail::Mail.parse("From mikel@example.org\nReceived by.... etc")
+#  # .. go on creating emails
+#
+#  # create hash of messages 
+#  # key = message_id, value = message
+#  messages = {}
+# 
+#  # store each email created above in hash
+#  # -> create lightweight message object
+#  light_mail = MessageFactory.create(mail.subject, mail.message_id, mail.in_reply_to, mail.references)
+#  messages[light_mail.message_id] = light_mail
+#  # .. go on for each created email 
+#
+#  root_node = Threading.new.thread(messages)
+#
+# Logging output can be configured in the following way:
+#
+#  logger = Logging::Logger['Threading']
+#  logger.level = :info
+#  logger.add_appenders(
+#    Logging::Appender.stdout
+#    #Logging::Appenders::File.new('example.log')
+#  )
+# 
 class Threading
 
+  # Init logger
   def initialize
-    #@logger = Logger.new($stderr)
-    @logger = Logger.new('log/logfile.log')
-    @logger.level = Logger::DEBUG
-    @logger.datetime_format = '%H:%M:%S'
+    @logger = Logging::Logger[self]
+    @logger.level = :info
+    @logger.add_appenders(
+      Logging::Appender.stdout
+      #Logging::Appenders::File.new('example.log')
+    )
   end
   
+  # Execute the threading algorithm
+   # 
+   # TODO: re-enable grouping by subject
+   #
+   def thread(messages)
+     @logger.info "jwz threading algorithm executing"
+
+     # create id_table
+     id_table = create_id_table(messages)
+
+     # create root hierachy siblings out of containers with zero children
+     root = create_root_hierachy_2(id_table);
+
+     # discard id_table
+     id_table = nil
+
+     # prune dummy containers
+     prune_empty_containers(root)
+
+     # group again this time use Subject only
+     #subject_table = group_root_set_by_subject(root)
+
+     root
+   end
+  
+  # create container for each message
   def create_container_1A(id_table, message_id, message)
+    @logger.info "1A create container for each message"
     parent_container = nil
     # if id_table contains empty container for message id
     if id_table.has_key?(message_id)
@@ -132,7 +192,9 @@ class Threading
     parent_container
   end
 
+  # create hierachy of message containers based on references and message-IDs
   def create_hierachy_1B(id_table, message, parent_container)
+    @logger.info "1B create hierachy of containers"
     prev = nil  
     message.references.each do |reference_id|
       @logger.debug "- 1B check reference id #{reference_id}"
@@ -177,8 +239,9 @@ class Threading
     end
   end
   
+  # create root hierachy by using all containers with no parent
   def create_root_hierachy_2(id_table)
-    @logger.debug "create root hierachy for all containers with no parent"
+    @logger.info "create root hierachy for all containers with no parent"
     root = Container.new()
     id_table.each_pair do |message_id, container|
       if container.parent == nil
@@ -188,8 +251,10 @@ class Threading
     root
   end
   
-  
+  # create hash 
+  # key = message_id, value = message
   def create_id_table(messages)
+    @logger.info "create id_table hash"
     id_table = Hash.new
     messages.each_pair do |message_id, message|
     
@@ -212,7 +277,7 @@ class Threading
   
   # recursively traverse all containers under root and remove dummy containers
   def prune_empty_containers(parent)
-   
+   @logger.info "prune empty containers"
     
     parent.children.reverse_each do |container|
       #for container in parent.children
@@ -253,28 +318,12 @@ class Threading
       end
     end 
   end
-      
+    
   
-  def thread(messages)
-    # create id_table
-    id_table = create_id_table(messages)
-    
-    # create root hierachy siblings out of containers with zero children
-    root = create_root_hierachy_2(id_table);
-    
-    # discard id_table
-    id_table = nil
-    
-    # prune dummy containers
-    prune_empty_containers(root)
-    
-    # group again this time use Subject only
-    #subject_table = group_root_set_by_subject(root)
-
-    root
-  end
-  
+  # group root set by subject
   def group_root_set_by_subject(root)
+    @logger.info "group root set by subject"
+    
     subject_table = {}
     
     # 5B

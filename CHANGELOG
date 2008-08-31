@@ -4,4 +4,5 @@
   * added more documentation to README
   * added Rakefile with spec, spec_html, rdoc, gem, clean, clobber support
   * added spec_helper.rb to cleanup includes of spec files
-  
+  * added logger support and example on how to configure logging
+  * added rdoc documentation
