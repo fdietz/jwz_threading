@@ -595,36 +595,85 @@ describe "JWZ threading algorithm" do
     container_c.children[0].should == container_d
   end
   
+  #
+  # before:
+  # Subject A
+  # Subject Z
+  # Re: Subject Z
+  # Re: Subject Z
+  #
+  # after:
+  # Subject A
+  # Subject Z
+  #   +- Re: Subject Z
+  #   +- Re: Subject Z
+  #
   it "should group all messages in the root set by subject" do
     root = empty_container
-    container_a = empty_container
-    container_a.message = message("subject_a", "a", [])
-    root.add_child(container_a)
-    container_b = empty_container
-    container_b.message = message("Re: subject_z", "b", [])
-    container_c = empty_container
-    container_c.message = message("Re: subject_z", "c", [])
-    container_d = empty_container
-    container_d.message = message("subject_z", "d", [])
-    root.add_child(container_b)
-    root.add_child(container_c)
-    root.add_child(container_d)
+    container_a = container("subject_a", "a", [])
+    root.add_child container_a
+    container_b = container("Re: subject_z", "b", [])
+    root.add_child container_b
+    container_c = container("Re: subject_z", "c", [])
+    root.add_child container_c
+    container_d = container ("subject_z", "d", [])
+    root.add_child container_d
 
-    # @debug.print_tree(root)    
-    @thread.prune_empty_containers(root)
-    #    @debug.print_tree(root)
-    
     subject_hash = @thread.group_root_set_by_subject(root)
     
-    #@debug.print_subject_hash(subject_hash)
-    # @debug.print_tree(root)
     subject_hash.key?("subject_a").should == true
     subject_hash.key?("subject_z").should == true
+    
+    root.children.should have(2).items
+    root.children[0].should == container_a
+    root.children[1].should == container_d
+    container_d.children.should have(2).items
+    container_d.children[0].should == container_c
+    container_d.children[1].should == container_b
   end
  
+  #
+  # before:
+  # Subject A
+  # Subject Z
+  # Re: Subject Z
+  # Re: Re: Subject Z
+  #
+  # after:
+  # Subject A
+  # Subject Z
+  #   +- Re: Subject Z
+  #      +- Re: Re: Subject Z
+  #
+  it "should group all messages in the root set by subject including"+
+   "multiple nested messages" do
+    root = empty_container
+    container_a = container("subject_a", "a", [])
+    root.add_child container_a
+    container_b = container("Re: subject_z", "b", [])
+    root.add_child container_b
+    container_c = container("Re: subject_z", "c", [])
+    root.add_child container_c
+    container_d = container ("subject_z", "d", [])
+    root.add_child container_d
 
-  
-  it "should create tree" do    
+    #@debug.print_tree(root)        
+    subject_hash = @thread.group_root_set_by_subject(root)
+    #@debug.print_subject_hash(subject_hash)
+    #@debug.print_tree(root)
+    
+    subject_hash.key?("subject_a").should == true
+    subject_hash.key?("subject_z").should == true
+    
+    root.children.should have(2).items
+    root.children[0].should == container_a
+    root.children[1].should == container_d
+    container_d.children.should have(2).items
+    container_d.children[0].should == container_c
+    container_d.children[1].should == container_b
+  end
+
+  it "should create tree based on message-IDs and references and on Subject" do    
     messages = Hash.new
     messages["a"] = message("subject", "a", "")
     messages["b"] = message("subject", "b", "a")
@@ -637,38 +686,23 @@ describe "JWZ threading algorithm" do
     messages["i"] = message("Fwd:Hello", "i", "")
     messages["j"] = message("Re:Re: Hello", "j", "")            
     
-    #@debug.print_tree(messages)
-    
     root = @thread.thread(messages)
-    #subject_hash = @thread.group_root_set_by_subject(root)
-  
+    subject_hash = @thread.group_root_set_by_subject(root)  
     #@debug.print_subject_hash subject_hash
     #@debug.print_tree(root)
     
-  end
-  
-  it "should create tree with nested dummies" do    
-    messages = Hash.new
-    messages["a"] = message("subject", "a", "")
-    messages["b"] = message("subject", "b", "a")
-    messages["c"] = message("subject", "c", ["a", "b"])
-    messages["d"] = message("subject", "d", ["a", "b", "c"])
-    messages["e"] = message("subject", "e", "d")
-    messages["f"] = message("Hello", "f", ["x", "y", "z"])
-    messages["g"] = message("Re:Hello", "g", ["f", "x", "y", "z"])
-    messages["h"] = message("Re:Hello", "h", ["x", "y", "z"])            
-    messages["i"] = message("Fwd:Hello", "i", ["x", "y", "z"])
-            
+    root.children.should have(2).items
+    root.children[0].message.message_id == "a"
+    root.children[0].children[0].message.message_id == "b"
+    root.children[0].children[0].children[0].message.message_id == "c"
+    root.children[0].children[0].children[0].children[0].message.message_id == "d"
+    root.children[0].children[0].children[0].children[0].children[0].message.message_id == "e"
     
-    #@debug.print_tree(messages)
-    
-    root = @thread.thread(messages)
-    #subject_hash = @thread.group_root_set_by_subject(root)
-  
-    #@debug.print_subject_hash subject_hash
-    #puts "------------------"
-    #@debug.print_tree(root)
-    
+    root.children[1].message.message_id == "f"
+    root.children[1].children[0].message.message_id == "j"
+    root.children[1].children[1].message.message_id == "i"
+    root.children[1].children[2].message.message_id == "h"
+    root.children[1].children[3].message.message_id == "g"
   end
   
 end
