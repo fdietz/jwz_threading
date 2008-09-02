@@ -19,7 +19,7 @@ describe "JWZ threading algorithm" do
         if !ref 
           ref = []
         end   
-        m = Message.new(value["subject"], key, ref)
+        m = MailHelper::Message.new(value["subject"], key, ref)
         messages[key] = m
       end
 
@@ -32,541 +32,580 @@ describe "JWZ threading algorithm" do
     messages = parser.parse_inbox path_helper("/#{file}")
   end
   
+  ########### helper methods: begin
+  
+  def message(subject, message_id, references)
+    MailHelper::Message.new(subject, message_id, references)
+  end
+  
+  def empty_container()
+    MailHelper::Container.new
+  end
+  
+  def container(subject, message_id, references)
+    MailHelper::Container.new message(subject, message_id, references)
+  end
+  
+  ########### helper methods: end
+  
   before(:each) do
-    Logging::Logger['Threading']
-    @thread = Threading.new
-    @debug = ThreadingDebug.new
-    @message_parser = MessageParser.new
+    @thread = MailHelper::Threading.new
+    # change log level
+    log = Logging::Logger['Threading']
+    log.level = :info
+      
+    @debug = MailHelper::Debug.new
+    @message_parser = MailHelper::MessageParser.new
   end
   
   it "should create valid message by using references field" do
-    message = MessageFactory.create("subject", "message_id", ["a"], ["a", "c"])
+    message = MailHelper::MessageFactory.create("subject", "message_id", ["a"], ["a", "c"])
     message.references.should == ["a", "c"]
   end
   
   it "should create valid message by using in-reply-to field" do
-    message = MessageFactory.create("subject", "message_id", ["a"], nil)
+    message = MailHelper::MessageFactory.create("subject", "message_id", ["a"], nil)
     message.references.should == ["a"]
   end
   
-  it "should create valid message by using in-reply-to field with multiple message-IDs" do
-    message = MessageFactory.create("subject", "message_id", ["a", "c"], nil)
+  it "should create valid message by using in-reply-to field with multiple message-IDs" +
+  " but taking only the first message-ID into account" do
+    message = MailHelper::MessageFactory.create("subject", "message_id", ["a", "c"], nil)
     message.references.should == ["a"]
   end
   
-  it "should create new container" do
-    id_table = Hash.new
-    message_a = Message.new("subject", "a", "")
-    message_b = Message.new("subject", "b", "a")
-    container_a = Container.new
-    container_a.message = message_a
-    container_b = Container.new
-    container_b.message = message_b
-    id_table["a"] = container_a
-    
-    parent_container = @thread.create_container_1A(id_table, message_b.message_id, message_b)
-    
-    id_table.should have(2).items
-    id_table["b"].message.message_id.should == "b"
-    id_table["b"].message.message_id.should == "b"
-    
-    id_table["b"].should == parent_container
-  end
-  
-  it "should *not* create new container since equal container exists already" do
-    id_table = Hash.new
-    message_a = Message.new("subject", "a", "")
-    message_b = Message.new("subject", "b", "a")
-    container_a = Container.new
-    container_a.message = message_a
-    container_b = Container.new
-    container_b.message = message_b
-    id_table["a"] = container_a
-    id_table["b"] = container_b
-    
-    parent_container = @thread.create_container_1A(id_table, message_b.message_id, message_b)
-    id_table.should have(2).items
-    id_table["b"].should == parent_container
-  end
-  
+  #
+  # a:subject(1) 
+  #   +- 2786200: b::subject(1) 
+  #     +- 2785770: c::subject(1) 
+  #       +- 2784990: d::subject(1) 
+  #         +- 2781700: e::subject
+  # b:subject(1) 
+  #   +- 2785770: c::subject(1) 
+  #     +- 2784990: d::subject(1) 
+  #       +- 2781700: e::subject
+  # c:subject(1) 
+  #   +- 2784990: d::subject(1) 
+  #     +- 2781700: e::subject
+  # d:subject(1) 
+  #   +- 2781700: e::subject
+  # e:subject
+  #
   it "should create id_table for each message" do
     messages = Hash.new
-    messages["a"] = Message.new("subject", "a", "")
-    messages["b"] = Message.new("subject", "b", "a")
-    messages["c"] = Message.new("subject", "c", ["a", "b"])
-    messages["d"] = Message.new("subject", "d", ["a", "b", "c"])
-    messages["e"] = Message.new("subject", "e", "d")
+    messages["a"] = message("subject", "a", "")
+    messages["b"] = message("subject", "b", "a")
+    messages["c"] = message("subject", "c", ["a", "b"])
+    messages["d"] = message("subject", "d", ["a", "b", "c"])
+    messages["e"] = message("subject", "e", "d")
  
     id_table = @thread.create_id_table(messages)
-    
-    #@debug.print_hash(id_table)
-    
+        
     id_table.should have(5).items
     id_table["a"].children.should have(1).item
     id_table["a"].children[0].message.message_id == "b"
-    id_table["a"].children[0].children[0].message.message_id == "c"
-    id_table["a"].children[0].children[0].children[0].message.message_id == "d"
-    id_table["a"].children[0].children[0].children[0].children[0].message.message_id == "e"
+    
+    id_table["b"].children.should have(1).items
+    id_table["b"].children[0].message.message_id == "c"
+
+    id_table["c"].children.should have(1).items
+    id_table["c"].children[0].message.message_id == "d"
+    
     id_table["d"].children.should have(1).item
     id_table["d"].children[0].message.message_id == "e"
+    
+    id_table["e"].children.should be_empty
   end
   
-  # it "should create id_table for each message" do
-  #     messages = parse_messages 'inbox_fixture_1.yml'
-  #     id_table = @thread.create_id_table(messages)
-  #     
-  #     id_table["a"].children.should have(2).items
-  #     id_table["a"].children[0].message.message_id.should == "b"
-  #     id_table["a"].children[1].message.message_id.should == "f"
-  #     id_table["b"].children.should have(1).item
-  #     id_table["b"].children[0].message.message_id.should == "d"
-  #     id_table["c"].children.should be_empty
-  #     id_table["d"].children.should have(1).item
-  #     id_table["d"].children[0].message.message_id.should == "e"
-  #     id_table["e"].children.should be_empty
-  #     
-  #     #@debug.print_hash(id_table)  
-  #   end
-  #   
-  #   it "should create tree model of all messages" do
-  #     messages = parse_messages 'inbox_fixture_1.yml'
-  #     id_table = @thread.create_id_table(messages)
-  #     root = @thread.create_root_hierachy_2(id_table)
-  #    
-  #     root.children.should have(2).items
-  #     root.children[0].message.message_id.should == "a" 
-  #     root.children[1].message.message_id.should == "c"
-  #     
-  #     #@debug.print_tree(root)
-  #   end
-  #   
-  #   it "should create tree model of all messages including multiple references with empty containers" do
-  #     messages = parse_messages 'inbox_fixture_2.yml'
-  #     id_table = @thread.create_id_table(messages)
-  #     #@debug.print_hash(id_table) 
-  #     
-  #     root = @thread.create_root_hierachy_2(id_table)
-  #     
-  #     root.children.should have(3).items
-  #     root.children[0].message.message_id.should == "a" 
-  #     root.children[1].message.message_id.should == "c"
-  #     root.children[2].message.message_id.should == "g"
-  #     
-  #     #@debug.print_tree(root)
-  #   end
+  #
+  # a:subject(1) 
+  #   +- 2760450: b::subject(1) 
+  #     +- 2759470: (dummy)
+  #       +- 2760060: d::subject(1) 
+  #         +- 2759140: e::subject
+  # b:subject(1) 
+  #   +- 2759470: (dummy)
+  #     +- 2760060: d::subject(1) 
+  #      +- 2759140: e::subject
+  # c(1) 
+  #   +- 2760060: d::subject(1) 
+  #     +- 2759140: e::subject
+  # d:subject(1) 
+  #   +- 2759140: e::subject
+  # e:subject
+  #
+  it "should create id_table for each message and dummy containers in case of"+
+  " reference to non-existent message" do
+    messages = Hash.new
+    messages["a"] = message("subject", "a", "")
+    messages["b"] = message("subject", "b", "a")
+    # message "c" is the dummy
+    messages["d"] = message("subject", "d", ["a", "b", "c"])
+    messages["e"] = message("subject", "e", "d")
+ 
+    id_table = @thread.create_id_table(messages)
+      
+    id_table.should have(5).items
+    id_table["a"].children.should have(1).item
+    id_table["a"].children[0].message.message_id == "b"
+    
+    # dummy "c" checked
+    id_table["b"].children.should have(1).items
+    id_table["b"].children[0].message.should be_nil
+
+    id_table["c"].children.should have(1).item
+    id_table["c"].children[0].message.message_id == "d"
+    
+    id_table["d"].children.should have(1).item
+    id_table["d"].children[0].message.message_id == "e"
+    
+    id_table["e"].children.should be_empty  
+  end
   
-  it "should prune containers with empty message and no children" do
+  #
+  # a:subject(1) 
+  #   +- 2730500: b::subject(1) 
+  #     +- 2729390: (dummy)
+  # b:subject(1) 
+  #   +- 2729390: (dummy)
+  # y(1) 
+  #   +- 2730090: d::subject(1) 
+  #     +- 2729010: e::subject
+  # c
+  # z(1) 
+  #   +- 2728640: (dummy)
+  #     +- 2730090: d::subject(1) 
+  #       +- 2729010: e::subject
+  # d:subject(1) 
+  #   +- 2729010: e::subject
+  # e:subject
+  #  
+  it "should create id_table for each message and nested dummy containers in case of"+
+  " references to non-existent messages" do
+    messages = Hash.new
+    messages["a"] = message("subject", "a", "")
+    messages["b"] = message("subject", "b", "a")
+    # message "c" is the dummy
+    messages["d"] = message("subject", "d", ["a", "b", "c"])
+    messages["e"] = message("subject", "e", ["z", "y", "d"])
+ 
+    id_table = @thread.create_id_table(messages)
+    #@debug.print_hash(id_table)
+ 
+    id_table.should have(7).items
+    id_table["a"].children.should have(1).item
+    id_table["a"].children[0].message.message_id == "b"
+    
+    # dummy "c" checked
+    id_table["b"].children.should have(1).items
+    id_table["b"].children[0].should be_dummy
+
+    id_table["c"].should be_dummy
+    id_table["c"].children.should be_empty
+    
+    id_table["z"].children.should have(1).items
+    id_table["z"].children[0].should be_dummy
+    
+    id_table["y"].children.should have(1).items
+    id_table["y"].children[0].message.message_id == "d"
+    
+    id_table["d"].children.should have(1).item
+    id_table["d"].children[0].message.message_id == "e"
+    
+    id_table["e"].children.should be_empty  
+  end
   
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject", "a", [])
-    root.add_child(container_a)
-    container_b = Container.new()
-    container_b.message = Message.new("subject", "b", "a")
-    container_a.add_child(container_b)
+  #
+  # before: 
+  # a
+  # +- b
+  #   +- dummy 
+  #  
+  # after:
+  # a
+  # +- b
+  # 
+  it "should prune containers with empty message and no children" do  
+    root = empty_container
+    container_a = container("subject", "a", [])
+    root.add_child container_a
+    container_b = container("subject", "b", "a")
+    container_a.add_child container_b
     # dummy container
-    container_z = Container.new()
+    container_z = empty_container
     container_b.add_child(container_z)
     
-    #@debug.print_tree(root)
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
     root.children.should have(1).item
     root.children[0].should == container_a
-    root.children[0].children[0].should == container_b
+    container_a.children.should have(1).item
+    container_a.children[0].should == container_b
+    container_b.children.should be_empty
   end
   
+  # 
+  # before: 
+  # a
+  # +- b
+  #    +- z (dummy)
+  #       +- c
+  #
+  # after:
+  # a
+  # +- b
+  #    +- c
+  #  
   it "should prune containers with empty message and 1 non-empty child" do 
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject", "a", [])
-    root.add_child(container_a)
-    container_b = Container.new()
-    container_b.message = Message.new("subject", "b", "a")
-    container_a.add_child(container_b)
-    container_c = Container.new()
-    container_c.message = Message.new("subject", "c", ["a", "z"])
+    root = empty_container
+    container_a = container("subject", "a", [])
+    root.add_child container_a
+    container_b = container("subject", "b", "a")
+    container_a.add_child container_b
+    container_c = container("subject", "c", ["a", "z"])
     # dummy container
-    container_z = Container.new()
-    container_b.add_child(container_z)
-    container_z.add_child(container_c)
+    container_z = empty_container
+    container_b.add_child container_z
+    container_z.add_child container_c
     
-    #@debug.print_tree(root)
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
     root.children.should have(1).items
     root.children[0].should == container_a
-    root.children[0].children[0] == container_b
-    root.children[0].children[0].children[0] == container_c
+    container_a.children[0] == container_b
+    container_b.children[0].children[0] == container_c
   end
   
+  #
+  # before:
+  # a
+  # z (dummy)
+  # +- c
+  #
+  # after:
+  # a
+  # b
+  #
+  #
   it "should promote child of containers with empty message and 1 child directly to root level" do 
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject", "a", [])
+    root = empty_container
+    
+    container_a = container("subject", "a", [])
     root.add_child(container_a)
-    container_b = Container.new()
-    container_b.message = Message.new("subject", "b", ["z"])
+    container_b = container("subject", "b", ["z"])
     # dummy container
-    container_z = Container.new()
+    container_z = empty_container
     root.add_child(container_z)
     container_z.add_child(container_b)
     
-    #@debug.print_tree(root)
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
     root.children[1].should == container_b
   end
   
+  #
+  # before:
+  # a
+  # z (dummy)
+  # +- b
+  # +- c
+  #
+  # after:
+  # a
+  # z (dummy)
+  # +- b
+  # +- c
+  # 
   it "should do *not* promote children of containers with empty message and 2 children directly to root level" do 
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject", "a", [])
-    root.add_child(container_a)
+    root = empty_container
+    container_a = container("subject", "a", [])
+    root.add_child container_a
     # dummy container
-    container_z = Container.new()
-    root.add_child(container_z)
+    container_z = empty_container
+    root.add_child container_z
     # dummy container children
-    container_b = Container.new()
-    container_b.message = Message.new("subject", "b", ["a", "z"])
-    container_z.add_child(container_b)
-    container_c = Container.new()
-    container_c.message = Message.new("subject", "c", ["a", "z"])
-    container_z.add_child(container_c)
+    container_b = container("subject", "b", ["a", "z"])
+    container_z.add_child container_b
+    container_c = container("subject", "c", ["a", "z"])
+    container_z.add_child container_c
     
-    #@debug.print_tree(root)
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
-    root.children[1].is_dummy.should be_true
-    root.children[1].children.should have(2).items
-    root.children[1].children[0].should == container_b
-    root.children[1].children[1].should == container_c
+    root.children[1].should be_dummy
+    container_z.children.should have(2).items
+    container_z.children[0].should == container_b
+    container_z.children[1].should == container_c
   end
   
+  
+  #
+  # before:
+  # a
+  # z (dummy)
+  # +- y (dummy)
+  #    +- b
+  #    +- c
+  #    +- d
+  #
+  # after:
+  # a
+  # z (dummy)
+  # +- b 
+  # +- c
+  # +- d
+  # 
   it "should promote children of containers with empty message and 2 children directly to next level" do 
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject", "a", [])
-    root.add_child(container_a)
+    root = empty_container
+    container_a = container("subject", "a", [])
+    root.add_child container_a
     # dummy container
-    container_z = Container.new()
-    root.add_child(container_z)
+    container_z = empty_container
+    root.add_child container_z
     # 2nd dummy container
-    container_y = Container.new()
-    container_z.add_child(container_y)
+    container_y = empty_container
+    container_z.add_child container_y
     # dummy container children
-    container_b = Container.new()
-    container_b.message = Message.new("subject", "b", ["a", "z"])
-    container_y.add_child(container_b)
-    container_c = Container.new()
-    container_c.message = Message.new("subject", "c", ["a", "z"])
-    container_y.add_child(container_c)
-    container_d = Container.new()
-    container_d.message = Message.new("subject", "d", ["a", "z"])
-    container_y.add_child(container_d)
+    container_b = container("subject", "b", ["a", "z"])
+    container_y.add_child container_b
+    container_c = container("subject", "c", ["a", "z"])
+    container_y.add_child container_c
+    container_d = container("subject", "d", ["a", "z"])
+    container_y.add_child container_d
     
-    #@debug.print_tree(root)
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
-    root.children[1].is_dummy.should be_true
+    root.children[1].should be_dummy
     root.children[1].children.should have(3).items
     root.children[1].children[0].should == container_d
     root.children[1].children[1].should == container_c
     root.children[1].children[2].should == container_b
   end
   
+  
+  #
+  # before:
+  # a
+  # z (dummy)
+  # +- y (dummy)
+  #    +- x (dummy)
+  #       +- b
+  #       +- c
+  # +- d
+  #
+  # after:
+  # a
+  # z (dummy)
+  # +- b
+  # +- c
+  # +- d
+  # 
   it "should promote children of several containers with empty message and 2 children directly to next level" do 
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject", "a", [])
-    root.add_child(container_a)
+    root = empty_container
+    container_a = container("subject", "a", [])
+    root.add_child container_a
     # dummy container
-    container_z = Container.new()
-    root.add_child(container_z)
+    container_z = empty_container
+    root.add_child container_z
     # 2nd dummy container
-    container_y = Container.new()
-    container_z.add_child(container_y)
+    container_y = empty_container
+    container_z.add_child container_y
     # 3nd dummy container
-    container_x = Container.new()
-    container_y.add_child(container_x)
+    container_x = empty_container
+    container_y.add_child container_x
     # dummy container children
-    container_b = Container.new()
-    container_b.message = Message.new("subject", "b", ["a", "z"])
-    container_x.add_child(container_b)
-    container_c = Container.new()
-    container_c.message = Message.new("subject", "c", ["a", "z"])
-    container_x.add_child(container_c)
+    container_b = container("subject", "b", ["a", "z"])
+    container_x.add_child container_b
+    container_c = container("subject", "c", ["a", "z"])
+    container_x.add_child container_c
+    container_d = container("subject", "d", ["a", "z"])
+    container_z.add_child container_d
     
-    #@debug.print_tree(root)
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
-    root.children[1].is_dummy.should be_true
-    root.children[1].children.should have(2).items
-    root.children[1].children[0].should == container_b
-    root.children[1].children[1].should == container_c
+    root.children[1].should be_dummy
+    container_z.children.should have(3).items
+    container_z.children[0].should == container_d
+    container_z.children[1].should == container_b
+    container_z.children[2].should == container_c
   end
   
-  it "should promote children of several containers with empty message and 2 children directly to next level" do 
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject", "a", [])
-    root.add_child(container_a)
-    # dummy container
-    container_z = Container.new()
+  #
+  # before:
+  # z (dummy)
+  # +- y (dummy)
+  #    +- a
+  # +- x (dummy)
+  #
+  # after:
+  # a
+  #
+  it "should promote children of several containers with empty message and multiple children" do 
+    root = empty_container
+    container_z = empty_container
     root.add_child(container_z)
-    # 2nd dummy container
-    container_y = Container.new()
-    container_z.add_child(container_y)
-    # 3nd dummy container
-    container_x = Container.new()
-    container_y.add_child(container_x)
-    # dummy container children
-    container_b = Container.new()
-    container_b.message = Message.new("subject", "b", ["a", "z"])
-    container_x.add_child(container_b)
-    container_c = Container.new()
-    container_c.message = Message.new("subject", "c", ["a", "z"])
-    container_x.add_child(container_c)
-    container_d = Container.new()
-    container_d.message = Message.new("subject", "d", ["a", "z"])
-    container_z.add_child(container_d)
-    
-    #@debug.print_tree(root)
+    container_y = empty_container
+    container_z.add_child container_y
+    container_a = container("subject", "a", [])
+    container_y.add_child container_a
+    container_x = empty_container
+    container_z.add_child container_x
+      
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
-    root.children.should have(2).items
+    root.children.should have(1).item
     root.children[0].should == container_a
-    root.children[1].is_dummy.should be_true
-    root.children[1].children.should have(3).items
-    root.children[1].children[0].should == container_d
-    root.children[1].children[1].should == container_b
-    root.children[1].children[2].should == container_c
+    container_a.children.should be_empty
   end
   
+  #
+  # before:
+  # z (dummy)
+  # +- y (dummy)
+  #    +- x (dummy)
+  #       +- w (dummy)
+  #          +- a
+  #             +- b
+  #          +- c
+  #             +- d
+  # +- v
+  #
+  # after:
+  # z (dummy)
+  # +- a
+  #    +- b
+  # +- c
+  #    +- d
+  #  
   it "should promote children of several containers with empty message and multiple children" do 
-    root = Container.new
-    container_dummy_1 = Container.new
-    root.add_child(container_dummy_1)
-      container_dummy_2 = Container.new
-      container_dummy_1.add_child(container_dummy_2)
-        container_dummy_3_a = Container.new
-        container_dummy_2.add_child(container_dummy_3_a)
-          container_dummy_4 = Container.new
-          container_dummy_3_a.add_child(container_dummy_4)
-            container_4_a = Container.new
-            container_4_a.message = Message.new("", "a", [])
-            container_dummy_4.add_child(container_4_a)
-        container_dummy_3_b = Container.new
-        container_dummy_1.add_child(container_dummy_3_b)
-        
-              
-              
-    #@debug.print_tree(root)
-    @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
-    # root.children.should have(2).items
-    #     root.children[0].should == container_a
-    #     root.children[1].is_dummy.should be_true
-    #     root.children[1].children.should have(3).items
-    #     root.children[1].children[0].should == container_d
-    #     root.children[1].children[1].should == container_b
-    #     root.children[1].children[2].should == container_c
-  end
-  
-  it "should promote children of several containers with empty message and multiple children" do 
-    root = Container.new
-    container_dummy_1 = Container.new
-    root.add_child(container_dummy_1)
-      container_dummy_2 = Container.new
-      container_dummy_1.add_child(container_dummy_2)
-        container_dummy_3_a = Container.new
-        container_dummy_2.add_child(container_dummy_3_a)
-          container_dummy_4 = Container.new
-          container_dummy_3_a.add_child(container_dummy_4)
-            container_4_a = Container.new
-            container_4_a.message = Message.new("", "a", [])
-            container_dummy_4.add_child(container_4_a)
-            container_4_b = Container.new
-            container_4_b.message = Message.new("", "b", [])
-            container_dummy_4.add_child(container_4_b)
-        container_dummy_3_b = Container.new
-        container_dummy_1.add_child(container_dummy_3_b)
-        
-              
-              
-    #@debug.print_tree(root)
-    @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
+    root = empty_container
+    container_z = empty_container
+    root.add_child(container_z)
+    container_y = empty_container
+    container_z.add_child container_y
+    container_x = empty_container
+    container_y.add_child container_x
+    container_w = empty_container
+    container_x.add_child container_w
+    container_a = container("subject", "a", [])
+    container_w.add_child container_a
+    container_b = container("subject", "b", [])
+    container_a.add_child container_b
+    container_c = container("subject","c", [])
+    container_w.add_child container_c
+    container_d = container("subject", "d", [])
+    container_c.add_child container_d
+    container_v = empty_container
+    container_z.add_child container_v
     
-    # root.children.should have(2).items
-    #     root.children[0].should == container_a
-    #     root.children[1].is_dummy.should be_true
-    #     root.children[1].children.should have(3).items
-    #     root.children[1].children[0].should == container_d
-    #     root.children[1].children[1].should == container_b
-    #     root.children[1].children[2].should == container_c
-  end
-  
-  
-  it "should promote children of several containers with empty message and multiple children" do 
-    root = Container.new
-    container_dummy_1 = Container.new
-    root.add_child(container_dummy_1)
-      container_dummy_2 = Container.new
-      container_dummy_1.add_child(container_dummy_2)
-        container_dummy_3_a = Container.new
-        container_dummy_2.add_child(container_dummy_3_a)
-          container_dummy_4 = Container.new
-          container_dummy_3_a.add_child(container_dummy_4)
-            container_4_a = Container.new
-            container_4_a.message = Message.new("", "a", [])
-            container_dummy_4.add_child(container_4_a)
-              container_5_a = Container.new
-              container_5_a.message = Message.new("", "b", [])
-              container_4_a.add_child(container_5_a)
-            container_4_b = Container.new
-            container_4_b.message = Message.new("", "c", [])
-            container_dummy_4.add_child(container_4_b)
-              container_5_b = Container.new
-              container_5_b.message = Message.new("", "d", [])
-              container_4_b.add_child(container_5_b)
-        container_dummy_3_b = Container.new
-        container_dummy_1.add_child(container_dummy_3_b)
-
-              
-              
-    #@debug.print_tree(root)
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
-    
-    # root.children.should have(2).items
-    #     root.children[0].should == container_a
-    #     root.children[1].is_dummy.should be_true
-    #     root.children[1].children.should have(3).items
-    #     root.children[1].children[0].should == container_d
-    #     root.children[1].children[1].should == container_b
-    #     root.children[1].children[2].should == container_c
+
+    root.children.should have(1).item
+    root.children[0].should == container_z
+    container_z.children.should have(2).items
+    container_z.children[0].should == container_c
+    container_z.children[1].should == container_a
+    container_a.children[0].should == container_b
+    container_c.children[0].should == container_d
   end
   
+
+  #
+  # before:
+  # z (dummy)
+  # +- y (dummy)
+  #    +- x (dummy)
+  #       +- w (dummy)
+  #          +- a
+  #             +- b 
+  #          +- c   
+  #             +- d
+  #    +- v
+  #       +- u
+  #          +- t  
+  #             +- s
+  #                +- q  
+  #                   +- e
+  #          +- p
+  #             +- f
+  #
+  # after:
+  # z (dummy) 
+  # +- a
+  #    +- b
+  # +- c
+  #    +- d
+  # +- e
+  # +- f
+  # 
   it "should promote children of several containers with empty message and multiple children" do 
-    root = Container.new
-    container_dummy_1 = Container.new
-    root.add_child(container_dummy_1)
-      container_dummy_2 = Container.new
-      container_dummy_1.add_child(container_dummy_2)
-        container_dummy_3_a = Container.new
-        container_dummy_2.add_child(container_dummy_3_a)
-          container_dummy_4 = Container.new
-          container_dummy_3_a.add_child(container_dummy_4)
-            container_4_a = Container.new
-            container_4_a.message = Message.new("", "a", [])
-            container_dummy_4.add_child(container_4_a)
-              container_5_a = Container.new
-              container_5_a.message = Message.new("", "b", [])
-              container_4_a.add_child(container_5_a)
-            container_4_b = Container.new
-            container_4_b.message = Message.new("", "c", [])
-            container_dummy_4.add_child(container_4_b)
-              container_5_b = Container.new
-              container_5_b.message = Message.new("", "d", [])
-              container_4_b.add_child(container_5_b)
-        container_dummy_3_b = Container.new
-        container_dummy_1.add_child(container_dummy_3_b)
-          container_dummy_4_b = Container.new
-                   container_dummy_3_b.add_child(container_dummy_4_b)
-                     container_dummy_5_b = Container.new
-                     container_dummy_4_b.add_child(container_dummy_5_b)
-                       container_dummy_6_b = Container.new
-                       container_dummy_5_b.add_child(container_dummy_6_b)
-                         container_dummy_7_b = Container.new
-                         container_dummy_6_b.add_child(container_dummy_7_b)
-                           container_8_b = Container.new
-                           container_8_b.message = Message.new("", "e", [])
-                           container_dummy_7_b.add_child(container_8_b)
-                     container_dummy_5_c = Container.new
-                     container_dummy_4_b.add_child(container_dummy_5_c)
-                       container_6_b = Container.new
-                       container_6_b.message = Message.new("", "f", [])
-                       container_dummy_5_c.add_child(container_6_b)
-              
-              
-    #@debug.print_tree(root)
+    root = empty_container
+    container_z = empty_container
+    root.add_child(container_z)
+    container_y = empty_container
+    container_z.add_child container_y
+    container_x = empty_container
+    container_y.add_child container_x
+    container_w = empty_container
+    container_x.add_child container_w
+    container_a = container("subject", "a", [])
+    container_w.add_child container_a
+    container_b = container("subject", "b", [])
+    container_a.add_child container_b
+    container_c = container("subject","c", [])
+    container_w.add_child container_c
+    container_d = container("subject", "d", [])
+    container_c.add_child container_d
+    container_v = empty_container
+    container_z.add_child container_v
+    container_u = empty_container
+    container_v.add_child container_u
+    container_t = empty_container
+    container_u.add_child container_t
+    container_s = empty_container
+    container_t.add_child container_s
+    container_q = empty_container
+    container_t.add_child container_q
+    container_e = container("subject", "e", [])
+    container_q.add_child container_e
+    container_p = empty_container
+    container_u.add_child container_p
+    container_f = container("subject", "f", [])
+    container_p.add_child container_f
+    
     @thread.prune_empty_containers(root)
-    #@debug.print_tree(root)
     
-    # root.children.should have(2).items
-    #     root.children[0].should == container_a
-    #     root.children[1].is_dummy.should be_true
-    #     root.children[1].children.should have(3).items
-    #     root.children[1].children[0].should == container_d
-    #     root.children[1].children[1].should == container_b
-    #     root.children[1].children[2].should == container_c
+    root.children.should have(1).item
+    root.children[0].should == container_z
+    container_z.children.should have(4).items
+    container_z.children[0].should == container_f
+    container_z.children[1].should == container_e
+    container_z.children[2].should == container_c
+    container_z.children[3].should == container_a
+    
+    container_a.children[0].should == container_b
+    container_c.children[0].should == container_d
   end
   
-  it "should promote children of several containers with empty message and multiple children" do 
-     root = Container.new
-     container_dummy_1 = Container.new
-     root.add_child(container_dummy_1)
-       container_dummy_2 = Container.new
-       container_dummy_1.add_child(container_dummy_2)
-         container_dummy_3_a = Container.new
-         container_dummy_2.add_child(container_dummy_3_a)
-           container_dummy_4 = Container.new
-           container_dummy_3_a.add_child(container_dummy_4)
-             container_4_a = Container.new
-             container_4_a.message = Message.new("", "a", [])
-             container_dummy_4.add_child(container_4_a)
-               container_5_a = Container.new
-               container_5_a.message = Message.new("", "b", [])
-               container_4_a.add_child(container_5_a)
-             container_4_b = Container.new
-             container_4_b.message = Message.new("", "c", [])
-             container_dummy_4.add_child(container_4_b)
-               container_5_b = Container.new
-               container_5_b.message = Message.new("", "d", [])
-               container_4_b.add_child(container_5_b)
-
-
-     @debug.print_tree(root)
-     @thread.prune_empty_containers(root)
-     @debug.print_tree(root)
-
-     # root.children.should have(2).items
-     #     root.children[0].should == container_a
-     #     root.children[1].is_dummy.should be_true
-     #     root.children[1].children.should have(3).items
-     #     root.children[1].children[0].should == container_d
-     #     root.children[1].children[1].should == container_b
-     #     root.children[1].children[2].should == container_c
-   end
-
   it "should group all messages in the root set by subject" do
-    root = Container.new()
-    container_a = Container.new()
-    container_a.message = Message.new("subject_a", "a", [])
+    root = empty_container
+    container_a = empty_container
+    container_a.message = message("subject_a", "a", [])
     root.add_child(container_a)
-    container_b = Container.new()
-    container_b.message = Message.new("Re: subject_z", "b", [])
-    container_c = Container.new()
-    container_c.message = Message.new("Re: subject_z", "c", [])
-    container_d = Container.new()
-    container_d.message = Message.new("subject_z", "d", [])
+    container_b = empty_container
+    container_b.message = message("Re: subject_z", "b", [])
+    container_c = empty_container
+    container_c.message = message("Re: subject_z", "c", [])
+    container_d = empty_container
+    container_d.message = message("subject_z", "d", [])
     root.add_child(container_b)
     root.add_child(container_c)
     root.add_child(container_d)
@@ -587,16 +626,16 @@ describe "JWZ threading algorithm" do
   
   it "should create tree" do    
     messages = Hash.new
-    messages["a"] = Message.new("subject", "a", "")
-    messages["b"] = Message.new("subject", "b", "a")
-    messages["c"] = Message.new("subject", "c", ["a", "b"])
-    messages["d"] = Message.new("subject", "d", ["a", "b", "c"])
-    messages["e"] = Message.new("subject", "e", "d")
-    messages["f"] = Message.new("Hello", "f", "")
-    messages["g"] = Message.new("Re:Hello", "g", "")
-    messages["h"] = Message.new("Re:Hello", "h", "")            
-    messages["i"] = Message.new("Fwd:Hello", "i", "")
-    messages["j"] = Message.new("Re:Re: Hello", "j", "")            
+    messages["a"] = message("subject", "a", "")
+    messages["b"] = message("subject", "b", "a")
+    messages["c"] = message("subject", "c", ["a", "b"])
+    messages["d"] = message("subject", "d", ["a", "b", "c"])
+    messages["e"] = message("subject", "e", "d")
+    messages["f"] = message("Hello", "f", "")
+    messages["g"] = message("Re:Hello", "g", "")
+    messages["h"] = message("Re:Hello", "h", "")            
+    messages["i"] = message("Fwd:Hello", "i", "")
+    messages["j"] = message("Re:Re: Hello", "j", "")            
     
     #@debug.print_tree(messages)
     
@@ -610,15 +649,15 @@ describe "JWZ threading algorithm" do
   
   it "should create tree with nested dummies" do    
     messages = Hash.new
-    messages["a"] = Message.new("subject", "a", "")
-    messages["b"] = Message.new("subject", "b", "a")
-    messages["c"] = Message.new("subject", "c", ["a", "b"])
-    messages["d"] = Message.new("subject", "d", ["a", "b", "c"])
-    messages["e"] = Message.new("subject", "e", "d")
-    messages["f"] = Message.new("Hello", "f", ["x", "y", "z"])
-    messages["g"] = Message.new("Re:Hello", "g", ["f", "x", "y", "z"])
-    messages["h"] = Message.new("Re:Hello", "h", ["x", "y", "z"])            
-    messages["i"] = Message.new("Fwd:Hello", "i", ["x", "y", "z"])
+    messages["a"] = message("subject", "a", "")
+    messages["b"] = message("subject", "b", "a")
+    messages["c"] = message("subject", "c", ["a", "b"])
+    messages["d"] = message("subject", "d", ["a", "b", "c"])
+    messages["e"] = message("subject", "e", "d")
+    messages["f"] = message("Hello", "f", ["x", "y", "z"])
+    messages["g"] = message("Re:Hello", "g", ["f", "x", "y", "z"])
+    messages["h"] = message("Re:Hello", "h", ["x", "y", "z"])            
+    messages["i"] = message("Fwd:Hello", "i", ["x", "y", "z"])
             
     
     #@debug.print_tree(messages)
