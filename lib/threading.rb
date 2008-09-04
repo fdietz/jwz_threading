@@ -1,10 +1,8 @@
 #!/user/bin/ruby
   
 require 'rubygems'
-require 'breakpoint'
 require 'uuid'
 require 'logger'
-require 'lib/message_parser'
 
 module MailHelper
   
@@ -31,6 +29,13 @@ module MailHelper
   #  # .. go on for each created email 
   #
   #  root_node = Threading.new.thread(messages)
+  #
+  #  This is an in-memory algorithm, which is why the MailHelper::Message class
+  #  exists. Using TMail::Mail instead would result in much more allocated heap 
+  #  space. Use the message-ID to associate MailHelper::Message with TMail::Mail.
+  #
+  #  This algorithm is not thread-safe.
+  #
   #
   # Logging output can be configured in the following way:
   #
@@ -477,6 +482,62 @@ module MailHelper
   
   end
 
+  # MessageParser provides helpers for parsing RFC822 headers
+  class MessageParser
+        
+    # Subject comparison are case-insensitive      
+    def self.is_reply_or_forward(subject)
+      pattern = /^(Re|Fwd)/i  
+   
+      #return pattern =~ subject
+    
+      if pattern =~ subject 
+        return true
+      else
+        return false
+      end   
+    end
+
+    # Subject comparison are case-insensitive  
+    def self.normalize_subject(subject)
+      pattern = /((Re|Fwd)(\[[\d+]\])?:(\s)?)*([\w]*)/i  
+      if pattern =~ subject
+        return $5
+      end
+    end
   
+
+    # return first found message-ID, otherwise nil
+    def self.normalize_message_id(message_id)
+      # match all characters between "<" and ">"
+      pattern = /<([^<>]+)>/
+    
+      if pattern =~ message_id
+        return $1
+      else
+        nil
+      end
+    end
+
+    # return array containing all found message-IDs
+    def self.parse_in_reply_to(in_reply_to)
+       # match all characters between "<" and ">"
+       pattern = /<([^<>]+)>/
+
+        # returns an array for each matches, for each group
+        result = in_reply_to.scan(pattern)
+        # flatten nested array to a single array
+        result.flatten
+    end
+  
+    # return array of matched message-IDs in references header
+    def self.parse_references(references)    
+      pattern = /<([^<>]+)>/
+      # returns an array for each matches, for each group
+      result = references.scan(pattern)
+      # flatten nested array to a single array
+      result.flatten
+    end
+  end # MessageParser
   
 end # module
