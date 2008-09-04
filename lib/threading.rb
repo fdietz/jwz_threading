@@ -423,6 +423,9 @@ module MailHelper
   end
 
   # Lightweight Message for the minimal used message attributes
+  # 
+  # Use message-ID as a reference to the original TMail::Mail object.
+  #
   # TODO: re-think class design: what is the best way for consumers of
   #       this API to use Message class different TMail::Mail
   #       Can't use TMail::Mail directly since it is an in-memory algorithm
