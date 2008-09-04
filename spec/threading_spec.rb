@@ -75,21 +75,21 @@ describe "JWZ threading algorithm" do
   end
   
   #
-  # a:subject(1) 
-  #   +- 2786200: b::subject(1) 
-  #     +- 2785770: c::subject(1) 
-  #       +- 2784990: d::subject(1) 
-  #         +- 2781700: e::subject
-  # b:subject(1) 
-  #   +- 2785770: c::subject(1) 
-  #     +- 2784990: d::subject(1) 
-  #       +- 2781700: e::subject
-  # c:subject(1) 
-  #   +- 2784990: d::subject(1) 
-  #     +- 2781700: e::subject
-  # d:subject(1) 
-  #   +- 2781700: e::subject
-  # e:subject
+  # a
+  # +- b
+  #    +- c
+  #       +- d
+  #          +- e
+  # b
+  # +- c
+  #    +- d
+  #       +- e
+  # c
+  # +- d
+  #    +- e
+  # d
+  # +- e
+  # e
   #
   it "should create id_table for each message" do
     messages = Hash.new
@@ -118,20 +118,20 @@ describe "JWZ threading algorithm" do
   end
   
   #
-  # a:subject(1) 
-  #   +- 2760450: b::subject(1) 
-  #     +- 2759470: (dummy)
-  #       +- 2760060: d::subject(1) 
-  #         +- 2759140: e::subject
-  # b:subject(1) 
-  #   +- 2759470: (dummy)
-  #     +- 2760060: d::subject(1) 
-  #      +- 2759140: e::subject
-  # c(1) 
-  #   +- 2760060: d::subject(1) 
-  #     +- 2759140: e::subject
-  # d:subject(1) 
-  #   +- 2759140: e::subject
+  # a
+  # +- b
+  #    +- c (dummy) 
+  #       +- d
+  #         +- e
+  # b
+  # +- c (dummy)
+  #    +- d
+  #       +- e
+  # c (dummy)
+  # +- e
+  #    +- e
+  # d
+  # +- e
   # e:subject
   #
   it "should create id_table for each message and dummy containers in case of"+
@@ -144,7 +144,7 @@ describe "JWZ threading algorithm" do
     messages["e"] = message("subject", "e", "d")
  
     id_table = @thread.create_id_table(messages)
-      
+    
     id_table.should have(5).items
     id_table["a"].children.should have(1).item
     id_table["a"].children[0].message.message_id == "b"
@@ -163,22 +163,24 @@ describe "JWZ threading algorithm" do
   end
   
   #
-  # a:subject(1) 
-  #   +- 2730500: b::subject(1) 
-  #     +- 2729390: (dummy)
-  # b:subject(1) 
-  #   +- 2729390: (dummy)
-  # y(1) 
-  #   +- 2730090: d::subject(1) 
-  #     +- 2729010: e::subject
+  # a
+  # +- b
+  #    +- c (dummy)
+  #       +- d
+  #          +- e
+  # b 
+  # +- c
+  #    +- d
+  #       +- e
+  # y (dummy)
   # c
-  # z(1) 
-  #   +- 2728640: (dummy)
-  #     +- 2730090: d::subject(1) 
-  #       +- 2729010: e::subject
-  # d:subject(1) 
-  #   +- 2729010: e::subject
-  # e:subject
+  # +- d
+  #    +- e
+  # z  (dummy)
+  # +- y (dummy)
+  # d
+  # +- e
+  # e
   #  
   it "should create id_table for each message and nested dummy containers in case of"+
   " references to non-existent messages" do
@@ -191,7 +193,6 @@ describe "JWZ threading algorithm" do
     messages["e"] = message("subject", "e", ["z", "y", "d"])
  
     id_table = @thread.create_id_table(messages)
-    @debug.print_hash(id_table)
  
     id_table.should have(7).items
     id_table["a"].children.should have(1).item
@@ -202,13 +203,13 @@ describe "JWZ threading algorithm" do
     id_table["b"].children[0].should be_dummy
 
     id_table["c"].should be_dummy
-    id_table["c"].children.should be_empty
+    id_table["c"].children.should have(1).item
+    id_table["c"].children[0].message.message_id == "d"
     
-    id_table["z"].children.should have(1).items
+    id_table["z"].children.should have(1).item
     id_table["z"].children[0].should be_dummy
     
-    id_table["y"].children.should have(1).items
-    id_table["y"].children[0].message.message_id == "d"
+    id_table["y"].children.should be_empty
     
     id_table["d"].children.should have(1).item
     id_table["d"].children[0].message.message_id == "e"

@@ -12,9 +12,9 @@ module MailHelper
       puts "------------"
       id_table.each_pair do |message_id, container|
         if container.message.nil?
-          print "#{message_id}"
+          print "#{container.object_id}: #{message_id}"
         else
-          print "#{container.message.message_id}:#{container.message.subject}" 
+          print "#{container.object_id}: #{container.message.message_id}:#{container.message.subject}" 
         end
         
         unless container.children.size == 0 
