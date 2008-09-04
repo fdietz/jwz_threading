@@ -2,6 +2,9 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe "JWZ threading algorithm" do
   
+  
+  ########### helper methods: begin
+    
   def path_helper(file)
     File.dirname(__FILE__) + file
   end
@@ -9,30 +12,25 @@ describe "JWZ threading algorithm" do
   # create message hash of yaml file
   # hash key is message_id
   # hash value the message with subject, message and references attributes
-  class Parser
-    def parse_inbox(path)
-      yaml = File.open(path) {|f| YAML.load(f)}
+  def self.parse_inbox(path)
+    yaml = File.open(path) {|f| YAML.load(f)}
 
-      messages = Hash.new
-      yaml.each do |key, value|
-        ref = value["references"]
-        if !ref 
-          ref = []
-        end   
-        m = MailHelper::Message.new(value["subject"], key, ref)
-        messages[key] = m
-      end
+    messages = Hash.new
+    yaml.each do |key, value|
+      ref = value["references"]
+      if !ref 
+        ref = []
+      end   
+    m = MailHelper::Message.new(value["subject"], key, ref)
+    messages[key] = m
+  end
 
-      messages
-    end
+  messages
   end
   
   def parse_messages(file)
-    parser = Parser.new
-    messages = parser.parse_inbox path_helper("/#{file}")
+    messages = parse_inbox path_helper("/#{file}")
   end
-  
-  ########### helper methods: begin
   
   def message(subject, message_id, references)
     MailHelper::Message.new(subject, message_id, references)
@@ -98,8 +96,9 @@ describe "JWZ threading algorithm" do
     messages["c"] = message("subject", "c", ["a", "b"])
     messages["d"] = message("subject", "d", ["a", "b", "c"])
     messages["e"] = message("subject", "e", "d")
- 
-    id_table = @thread.create_id_table(messages)
+
+    # calling private method here 
+    id_table = @thread.send(:create_id_table, messages)
         
     id_table.should have(5).items
     id_table["a"].children.should have(1).item
@@ -143,7 +142,8 @@ describe "JWZ threading algorithm" do
     messages["d"] = message("subject", "d", ["a", "b", "c"])
     messages["e"] = message("subject", "e", "d")
  
-    id_table = @thread.create_id_table(messages)
+    # calling private method here
+    id_table = @thread.send(:create_id_table, messages)
     
     id_table.should have(5).items
     id_table["a"].children.should have(1).item
@@ -192,7 +192,8 @@ describe "JWZ threading algorithm" do
     # message "y" and "z" is a dummy
     messages["e"] = message("subject", "e", ["z", "y", "d"])
  
-    id_table = @thread.create_id_table(messages)
+    # calling private method here
+    id_table = @thread.send(:create_id_table, messages)
  
     id_table.should have(7).items
     id_table["a"].children.should have(1).item
@@ -237,7 +238,8 @@ describe "JWZ threading algorithm" do
     container_z = empty_container
     container_b.add_child(container_z)
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(1).item
     root.children[0].should == container_a
@@ -270,7 +272,8 @@ describe "JWZ threading algorithm" do
     container_b.add_child container_z
     container_z.add_child container_c
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(1).items
     root.children[0].should == container_a
@@ -300,7 +303,8 @@ describe "JWZ threading algorithm" do
     root.add_child(container_z)
     container_z.add_child(container_b)
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
@@ -333,7 +337,8 @@ describe "JWZ threading algorithm" do
     container_c = container("subject", "c", ["a", "z"])
     container_z.add_child container_c
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
@@ -378,7 +383,8 @@ describe "JWZ threading algorithm" do
     container_d = container("subject", "d", ["a", "z"])
     container_y.add_child container_d
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
@@ -428,7 +434,8 @@ describe "JWZ threading algorithm" do
     container_d = container("subject", "d", ["a", "z"])
     container_z.add_child container_d
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(2).items
     root.children[0].should == container_a
@@ -460,7 +467,8 @@ describe "JWZ threading algorithm" do
     container_x = empty_container
     container_z.add_child container_x
       
-    @thread.prune_empty_containers(root)
+    # calling private methodhere
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(1).item
     root.children[0].should == container_a
@@ -508,7 +516,8 @@ describe "JWZ threading algorithm" do
     container_v = empty_container
     container_z.add_child container_v
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
 
     root.children.should have(1).item
     root.children[0].should == container_z
@@ -583,7 +592,8 @@ describe "JWZ threading algorithm" do
     container_f = container("subject", "f", [])
     container_p.add_child container_f
     
-    @thread.prune_empty_containers(root)
+    # calling private method here
+    @thread.send(:prune_empty_containers, root)
     
     root.children.should have(1).item
     root.children[0].should == container_z
@@ -621,7 +631,8 @@ describe "JWZ threading algorithm" do
     container_d = container("subject_z", "d", [])
     root.add_child container_d
 
-    subject_hash = @thread.group_root_set_by_subject(root)
+    # calling private method here
+    subject_hash = @thread.send(:group_root_set_by_subject, root)
     
     subject_hash.key?("subject_a").should == true
     subject_hash.key?("subject_z").should == true
@@ -660,7 +671,8 @@ describe "JWZ threading algorithm" do
     root.add_child container_d
 
     #@debug.print_tree(root)        
-    subject_hash = @thread.group_root_set_by_subject(root)
+    # calling private method here
+    subject_hash = @thread.send(:group_root_set_by_subject, root)
     #@debug.print_subject_hash(subject_hash)
     #@debug.print_tree(root)
     
@@ -675,36 +687,55 @@ describe "JWZ threading algorithm" do
     container_d.children[1].should == container_b
   end
 
-  it "should create tree based on message-IDs and references and on Subject" do    
+  it "should create tree based on message-IDs and references" do    
     messages = Hash.new
     messages["a"] = message("subject", "a", "")
     messages["b"] = message("subject", "b", "a")
     messages["c"] = message("subject", "c", ["a", "b"])
     messages["d"] = message("subject", "d", ["a", "b", "c"])
     messages["e"] = message("subject", "e", "d")
-    messages["f"] = message("Hello", "f", "")
-    messages["g"] = message("Re:Hello", "g", "")
-    messages["h"] = message("Re:Hello", "h", "")            
-    messages["i"] = message("Fwd:Hello", "i", "")
-    messages["j"] = message("Re:Re: Hello", "j", "")            
     
     root = @thread.thread(messages)
-    subject_hash = @thread.group_root_set_by_subject(root)  
-    #@debug.print_subject_hash subject_hash
-    #@debug.print_tree(root)
     
-    root.children.should have(2).items
+    root.children.should have(1).items
     root.children[0].message.message_id == "a"
     root.children[0].children[0].message.message_id == "b"
     root.children[0].children[0].children[0].message.message_id == "c"
     root.children[0].children[0].children[0].children[0].message.message_id == "d"
     root.children[0].children[0].children[0].children[0].children[0].message.message_id == "e"
-    
-    root.children[1].message.message_id == "f"
-    root.children[1].children[0].message.message_id == "j"
-    root.children[1].children[1].message.message_id == "i"
-    root.children[1].children[2].message.message_id == "h"
-    root.children[1].children[3].message.message_id == "g"
   end
+  
+  # it "should create tree based on message-IDs and references and on Subject" do    
+  #     messages = Hash.new
+  #     messages["a"] = message("subject", "a", "")
+  #     messages["b"] = message("subject", "b", "a")
+  #     messages["c"] = message("subject", "c", ["a", "b"])
+  #     messages["d"] = message("subject", "d", ["a", "b", "c"])
+  #     messages["e"] = message("subject", "e", "d")
+  #     messages["f"] = message("Hello", "f", "")
+  #     messages["g"] = message("Re:Hello", "g", "")
+  #     messages["h"] = message("Re:Hello", "h", "")            
+  #     messages["i"] = message("Fwd:Hello", "i", "")
+  #     messages["j"] = message("Re:Re: Hello", "j", "")            
+  #     
+  #     root = @thread.thread(messages)
+  #     #subject_hash = @thread.group_root_set_by_subject(root)  
+  #     #@debug.print_subject_hash subject_hash
+  #     @debug.print_tree(root)
+  #     
+  #     root.children.should have(2).items
+  #     root.children[0].message.message_id == "a"
+  #     root.children[0].children[0].message.message_id == "b"
+  #     root.children[0].children[0].children[0].message.message_id == "c"
+  #     root.children[0].children[0].children[0].children[0].message.message_id == "d"
+  #     root.children[0].children[0].children[0].children[0].children[0].message.message_id == "e"
+  #     
+  #     root.children[1].message.message_id == "f"
+  #     root.children[1].children[0].message.message_id == "j"
+  #     root.children[1].children[1].message.message_id == "i"
+  #     root.children[1].children[2].message.message_id == "h"
+  #     root.children[1].children[3].message.message_id == "g"
+  #   end
+  #   
   
 end

@@ -4,7 +4,7 @@ require 'logging'
 require 'lib/threading'
 class Main
   
-  #MBOX_FILE = "/Volumes/DATA/#backup/gmail/backup 2008.mbox/mbox"
+  #MBOX_FILE = "/Volumes/DATA/#backup/gmail/backup 2006.mbox/mbox"
   MBOX_FILE = File.join(File.dirname(__FILE__),"test1.mbox")
 
   def main     

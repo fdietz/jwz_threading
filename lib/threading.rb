@@ -8,109 +8,6 @@ require 'lib/message_parser'
 
 module MailHelper
   
-  # Container for creation of parent/child relationship of messages 
-  class Container
-    attr_accessor :parent, :children, :next, :message
-  
-    def initialize(message = nil)
-      @parent = nil
-      @message = message
-      @children = []
-      @next = nil
-    end
-    
-    def dummy?
-      @message.nil?
-    end
-  
-    def add_child(child)
-      if not child.parent.nil?
-        child.parent.remove_child(child)
-      end
-    
-      @children << child
-      child.parent = self
-    end
-  
-    def remove_child(child)
-      @children.delete(child)
-      child.parent = nil
-    end
-  
-    def has_descendant(container, level = 0)
-      # never happens it seems
-      # if self == container
-      #  return true
-      #end
-     
-      if @children.size == 0 
-        return false
-      end
-    
-      level = level + 1
-      @children.each do |c|
-        if c == container 
-          return true
-        elsif c.has_descendant(container, level)
-          return true
-        end    
-      end
-     false
-    end
-    
-    def to_s
-      "#{self.object_id}:#{@children.size}"
-    end
-  end
-
-  # Lightweight Message for the minimal used message attributes
-  class Message
-    attr_reader :subject, :message_id, :references
-    attr_accessor :from
-  
-    def initialize(subject, message_id, references)
-      @subject = subject;
-      @message_id = message_id
-      @references = references
-      @from = ""
-    end
-    
-    def to_s
-      "#{@message_id}"
-    end
-  end
-
-  # Factory for creating messages. Ensures consistent data required
-  # for threading algorithm.
-  class MessageFactory
-  
-    def self.create(subject, message_id, in_reply_to, references)
-    
-      references = [] if references.nil?
-      in_reply_to = [] if in_reply_to.nil?
-    
-      # if there are no message-IDs in references header  
-      if references.size == 0 
-          # use the first found message-ID of the in-reply-to header instead
-          if in_reply_to.size > 0
-            references << in_reply_to[0]
-          end
-      end
-    
-      if subject.nil?
-        subject = ""
-      end
-    
-      if message_id.nil?
-        message_id = UUID.new +  "@fdietz"
-      end
-    
-      Message.new(subject, message_id, references)
-    end
-  
-  end
-
-
   #
   # Threading takes a list of RFC822 compliant emails and orders
   # them by conversation. That is, grouping messages together in 
@@ -138,7 +35,7 @@ module MailHelper
   #
   # Logging output can be configured in the following way:
   #
-  #  logger = Logging::Logger['Threading']
+  #  logger = Logging::Logger['MailHelper::Threading']
   #  logger.level = :info
   #  logger.add_appenders(
   #    Logging::Appender.stdout
@@ -146,7 +43,13 @@ module MailHelper
   #  )
   # 
   class Threading
-
+ 
+    # has associates message-IDs with containers for messages
+    @id_table = {}
+    
+    # root node of tree hierachy
+    @root = nil
+    
     # Init logger
     def initialize
       @logger = Logging::Logger[self]
@@ -158,27 +61,27 @@ module MailHelper
     end
   
     # Execute the threading algorithm
-     # 
-     # TODO: re-enable grouping by subject
-     #
+    # 
+    # TODO: re-enable grouping by subject, if required
+    #
      def thread(messages)
        @logger.info "jwz threading algorithm executing"
 
        # create id_table
-       id_table = create_id_table(messages)
+       @id_table = create_id_table(messages)
 
        # create root hierachy siblings out of containers with zero children
        # TODO: would probably be nicer to use a list instead of empty root node
        @logger.info "create root hierachy for all containers with no parent"
        root = Container.new()
-       id_table.each_pair do |message_id, container|
+       @id_table.each_pair do |message_id, container|
          if container.parent == nil
            root.add_child(container)
          end
        end
 
        # discard id_table
-       id_table = nil
+       @id_table = nil
 
        # prune dummy containers
        prune_empty_containers(root)
@@ -189,14 +92,19 @@ module MailHelper
        root
      end
   
-    def get_container_by_id(id_table, container_id)
+    ########################### private methods #############################
+    
+    private
+    
+    def get_container_by_id(container_id)
       # if id_table contains empty container for message id
-      if id_table.has_key?(container_id)
-        # store this message in container's message slot
-        id_table[container_id]
+      if @id_table.has_key?(container_id)
+        # found existing container
+        @id_table[container_id]
       else
+        # create new container
         parent_container = Container.new()
-        id_table[container_id] = parent_container
+        @id_table[container_id] = parent_container
         parent_container
       end
     end
@@ -206,12 +114,12 @@ module MailHelper
     def create_id_table(messages)
       @logger.info "create id_table hash"
       
-      id_table = Hash.new
+      @id_table = Hash.new
       messages.each_pair do |message_id, message|
         @logger.debug "message-id: #{message_id}"
         
         # 1A retrieve container or create a new one
-        parent_container = get_container_by_id(id_table, message_id)
+        parent_container = get_container_by_id(message_id)
         parent_container.message = message
               
         # 1B
@@ -223,7 +131,7 @@ module MailHelper
         # order implied by the References header
         refs.each do |ref|
           # Find a Container object for the given Message-ID
-          container = get_container_by_id(id_table, ref)
+          container = get_container_by_id(ref)
 
           
           # * container is not linked yet (has no parent)
@@ -288,7 +196,7 @@ module MailHelper
         #         
         #       end
         
-      id_table
+      @id_table
     end
   
  
@@ -457,5 +365,112 @@ module MailHelper
       subject_table
     end 
   end
+  
+  ################################ helper classes ################################
+  
+  
+  # Container for creation of parent/child relationship of messages 
+  class Container
+    attr_accessor :parent, :children, :next, :message
+  
+    def initialize(message = nil)
+      @parent = nil
+      @message = message
+      @children = []
+      @next = nil
+    end
+    
+    def dummy?
+      @message.nil?
+    end
+  
+    def add_child(child)
+      if not child.parent.nil?
+        child.parent.remove_child(child)
+      end
+    
+      @children << child
+      child.parent = self
+    end
+  
+    def remove_child(child)
+      @children.delete(child)
+      child.parent = nil
+    end
+  
+    def has_descendant(container)
+      # never happens it seems
+      # if self == container
+      #  return true
+      #end
+     
+      if @children.size == 0 
+        return false
+      end
+    
+      @children.each do |c|
+        if c == container 
+          return true
+        elsif c.has_descendant(container)
+          return true
+        end    
+      end
+     false
+    end
+  end
+
+  # Lightweight Message for the minimal used message attributes
+  # TODO: re-think class design: what is the best way for consumers of
+  #       this API to use Message class different TMail::Mail
+  #       Can't use TMail::Mail directly since it is an in-memory algorithm
+  #       and the complete message would allocate too much heap space 
+  class Message
+    attr_reader :subject, :message_id, :references
+    attr_accessor :from
+  
+    def initialize(subject, message_id, references)
+      @subject = subject;
+      @message_id = message_id
+      @references = references
+      # do we need "From" in the first place here?
+      # - not for this algorithm to function!
+      @from = ""
+    end
+  end
+
+  # Factory for creating messages. Ensures consistent data required
+  # for threading algorithm.
+  class MessageFactory
+  
+    def self.create(subject, message_id, in_reply_to, references)
+    
+      references = [] if references.nil?
+      in_reply_to = [] if in_reply_to.nil?
+    
+      # if there are no message-IDs in references header  
+      if references.size == 0 
+          # use the first found message-ID of the in-reply-to header instead
+          if in_reply_to.size > 0
+            references << in_reply_to[0]
+          end
+      end
+    
+      if subject.nil?
+        subject = ""
+      end
+    
+      # if no message-ID specified
+      if message_id.nil?
+        # generate UUID instead
+        # FIXME: this is no RFC822 compliant message id!
+        message_id = UUID.new
+      end
+    
+      Message.new(subject, message_id, references)
+    end
+  
+  end
+
+  
   
 end # module
