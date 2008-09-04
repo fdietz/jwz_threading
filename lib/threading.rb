@@ -189,78 +189,104 @@ module MailHelper
        root
      end
   
+    def get_container_by_id(id_table, container_id)
+      # if id_table contains empty container for message id
+      if id_table.has_key?(container_id)
+        # store this message in container's message slot
+        id_table[container_id]
+      else
+        parent_container = Container.new()
+        id_table[container_id] = parent_container
+        parent_container
+      end
+    end
     
     # create hash 
     # key = message_id, value = message
     def create_id_table(messages)
       @logger.info "create id_table hash"
+      
       id_table = Hash.new
       messages.each_pair do |message_id, message|
-    
-        # 1A
-        # create container for each message or use existing one
-        @logger.info "1A create container for each message"
-        parent_container = nil
-        # if id_table contains empty container for message id
-        if id_table.has_key?(message_id)
-          # store this message in container's message slot
-          parent_container = id_table[message_id]
-          parent_container.message = message
-          @logger.debug "1A found existing container for #{message_id}"
-        else
-          parent_container = Container.new()
-          parent_container.message = message
-          id_table[message_id] = parent_container
-          @logger.debug "1A created new container for #{message_id}"
-        end
-      
+        @logger.debug "message-id: #{message_id}"
+        
+        # 1A retrieve container or create a new one
+        parent_container = get_container_by_id(id_table, message_id)
+        parent_container.message = message
+              
         # 1B
         # for each element in the message's references field find a container  
-        @logger.info "1B create hierachy of containers"
-        prev = nil  
-        message.references.each do |reference_id|
-          @logger.debug "- 1B check reference id #{reference_id}"
-          message_id = nil
-          ref_container = nil
-          # check if a container already exists
-          if id_table.has_key?(reference_id)
-            ref_container = id_table[reference_id]
-            @logger.debug "- 1B found existing container for reference #{reference_id}"
-          else
-            # create new container with null message
-            #message_id = UUID.new 
-            ref_container = Container.new()
-            id_table[reference_id] = ref_container
-            @logger.debug "- 1B created new container for #{reference_id}"
+        refs = message.references
+        
+        prev = nil
+        # Link the References field's Containers together in the
+        # order implied by the References header
+        refs.each do |ref|
+          # Find a Container object for the given Message-ID
+          container = get_container_by_id(id_table, ref)
+
+          
+          # * container is not linked yet (has no parent)
+          # * don't create loop
+          if (prev && container.parent.nil? && (!container.has_descendant(prev))) 
+            prev.add_child(container)
           end
+          
+          prev = container
+        end
 
-          if ( prev != nil)
-            # don't create a loop
-            if ref_container == parent_container
-              @logger.debug "- 1B ref_container == parent_container -> skip since we don't want create a loop!"
-              next
-            end
-            #if prev.has_descendant(ref_container)
-            if ref_container.has_descendant(prev)
-             @logger.debug "- 1B ref_container already has descendants!"
-              next
-            end
-
-            prev.add_child(ref_container)
-            @logger.debug "- 1B added ref_container to prev"
-          end
-
-
-          prev = ref_container
-          @logger.debug "- 1B prev = ref_container"
-        end    
-
-        if ( prev != nil)
-          @logger.debug "- 1B added parent_container to prev"
+        # C. Set the parent of this message to be the last element in References
+        if (prev and (!parent_container.has_descendant(prev)))
+          # TODO: check if parent_container is a child of anyone else
+          # " do we really have to?"
+          
+          # Make sure thiscontainer isn't already a child of *anything*.
+          # id_table.each { |id,mesg|
+          #             mesg.children.delete_if { |c|
+          #               c.message.message_id == parent_container.message.message_id
+          #             }
+          #           }
+          
           prev.add_child(parent_container)
         end
-        
       end
+      
+        # prev = nil  
+        #         message.references.each do |reference_id|
+        #           @logger.debug "- 1B check reference id #{reference_id}"
+        #         
+        #           # retrieve container or create a new empty one
+        #           ref_container = get_container_by_id(id_table, reference_id)
+        #                 
+        #           unless prev.nil?
+        #             # don't create a loop
+        #             if ref_container == parent_container
+        #               @logger.debug "- 1B ref_container == parent_container -> skip since we don't want create a loop!"
+        #               next
+        #             end
+        #   
+        #             if ref_container.has_descendant(prev) 
+        #             # check both instead
+        #             #if ref_container.has_descendant(prev) || prev.has_descendant(ref_container)
+        #              @logger.debug "- 1B ref_container already has descendants!"
+        #               next
+        #             end
+        # 
+        #             prev.add_child(ref_container)
+        #             @logger.debug "- 1B added ref_container to prev"
+        #           end
+        # 
+        # 
+        #           prev = ref_container
+        #           @logger.debug "- 1B prev = ref_container"
+        #         end    
+        # 
+        #         unless prev.nil?
+        #           @logger.debug "- 1B added parent_container to prev"
+        #           prev.add_child(parent_container)
+        #         end
+        #         
+        #       end
         
       id_table
     end

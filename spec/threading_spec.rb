@@ -187,10 +187,11 @@ describe "JWZ threading algorithm" do
     messages["b"] = message("subject", "b", "a")
     # message "c" is the dummy
     messages["d"] = message("subject", "d", ["a", "b", "c"])
+    # message "y" and "z" is a dummy
     messages["e"] = message("subject", "e", ["z", "y", "d"])
  
     id_table = @thread.create_id_table(messages)
-    #@debug.print_hash(id_table)
+    @debug.print_hash(id_table)
  
     id_table.should have(7).items
     id_table["a"].children.should have(1).item
@@ -616,7 +617,7 @@ describe "JWZ threading algorithm" do
     root.add_child container_b
     container_c = container("Re: subject_z", "c", [])
     root.add_child container_c
-    container_d = container ("subject_z", "d", [])
+    container_d = container("subject_z", "d", [])
     root.add_child container_d
 
     subject_hash = @thread.group_root_set_by_subject(root)
@@ -654,7 +655,7 @@ describe "JWZ threading algorithm" do
     root.add_child container_b
     container_c = container("Re: subject_z", "c", [])
     root.add_child container_c
-    container_d = container ("subject_z", "d", [])
+    container_d = container("subject_z", "d", [])
     root.add_child container_d
 
     #@debug.print_tree(root)        
