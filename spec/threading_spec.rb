@@ -90,12 +90,12 @@ describe "JWZ threading algorithm" do
   # e
   #
   it "should create id_table for each message" do
-    messages = Hash.new
-    messages["a"] = message("subject", "a", "")
-    messages["b"] = message("subject", "b", "a")
-    messages["c"] = message("subject", "c", ["a", "b"])
-    messages["d"] = message("subject", "d", ["a", "b", "c"])
-    messages["e"] = message("subject", "e", "d")
+    messages = []
+    messages << message("subject", "a", "")
+    messages << message("subject", "b", "a")
+    messages << message("subject", "c", ["a", "b"])
+    messages << message("subject", "d", ["a", "b", "c"])
+    messages << message("subject", "e", "d")
 
     # calling private method here 
     id_table = @thread.send(:create_id_table, messages)
@@ -135,12 +135,12 @@ describe "JWZ threading algorithm" do
   #
   it "should create id_table for each message and dummy containers in case of"+
   " reference to non-existent message" do
-    messages = Hash.new
-    messages["a"] = message("subject", "a", "")
-    messages["b"] = message("subject", "b", "a")
+    messages = []
+    messages << message("subject", "a", "")
+    messages << message("subject", "b", "a")
     # message "c" is the dummy
-    messages["d"] = message("subject", "d", ["a", "b", "c"])
-    messages["e"] = message("subject", "e", "d")
+    messages << message("subject", "d", ["a", "b", "c"])
+    messages << message("subject", "e", "d")
  
     # calling private method here
     id_table = @thread.send(:create_id_table, messages)
@@ -184,13 +184,13 @@ describe "JWZ threading algorithm" do
   #  
   it "should create id_table for each message and nested dummy containers in case of"+
   " references to non-existent messages" do
-    messages = Hash.new
-    messages["a"] = message("subject", "a", "")
-    messages["b"] = message("subject", "b", "a")
+    messages = []
+    messages << message("subject", "a", "")
+    messages << message("subject", "b", "a")
     # message "c" is the dummy
-    messages["d"] = message("subject", "d", ["a", "b", "c"])
+    messages << message("subject", "d", ["a", "b", "c"])
     # message "y" and "z" is a dummy
-    messages["e"] = message("subject", "e", ["z", "y", "d"])
+    messages << message("subject", "e", ["z", "y", "d"])
  
     # calling private method here
     id_table = @thread.send(:create_id_table, messages)
@@ -688,12 +688,12 @@ describe "JWZ threading algorithm" do
   end
 
   it "should create tree based on message-IDs and references" do    
-    messages = Hash.new
-    messages["a"] = message("subject", "a", "")
-    messages["b"] = message("subject", "b", "a")
-    messages["c"] = message("subject", "c", ["a", "b"])
-    messages["d"] = message("subject", "d", ["a", "b", "c"])
-    messages["e"] = message("subject", "e", "d")
+    messages = []
+    messages << message("subject", "a", "")
+    messages << message("subject", "b", "a")
+    messages << message("subject", "c", ["a", "b"])
+    messages << message("subject", "d", ["a", "b", "c"])
+    messages << message("subject", "e", "d")
     
     root = @thread.thread(messages)
     

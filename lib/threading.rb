@@ -21,14 +21,13 @@ module MailHelper
   #  mail = TMail::Mail.parse("From mikel@example.org\nReceived by.... etc")
   #  # .. go on creating emails
   #
-  #  # create hash of messages 
-  #  # key = message_id, value = message
-  #  messages = {}
+  #  # create array of messages 
+  #  messages = []
   # 
-  #  # store each email created above in hash
-  #  # -> create lightweight message object
-  #  light_mail = MessageFactory.create(mail.subject, mail.message_id, mail.in_reply_to, mail.references)
-  #  messages[light_mail.message_id] = light_mail
+  #  # store each email created above in array
+  #  # -> create lightweight message object using factory
+  #  lightweight_message = MessageFactory.create(mail.subject, mail.message_id, mail.in_reply_to, mail.references)
+  #  messages << lightweight_message
   #  # .. go on for each created email 
   #
   #  root_node = Threading.new.thread(messages)
@@ -61,8 +60,11 @@ module MailHelper
     end
   
     # Execute the threading algorithm
-    # 
-    # TODO: re-enable grouping by subject, if required
+    # Input Parameters: Array of MailHelper::Message 
+    #
+    # TODO: 
+    #   * re-enable grouping by subject, if required
+    #   * check what happens in case of two messages with equal message-ID
     #
      def thread(messages)
        @logger.info "jwz threading algorithm executing"
@@ -111,20 +113,21 @@ module MailHelper
     
     # create hash 
     # key = message_id, value = message
+    # input parameter: messages: Array
     def create_id_table(messages)
       @logger.info "create id_table hash"
       
-      @id_table = Hash.new
-      messages.each_pair do |message_id, message|
-        @logger.debug "message-id: #{message_id}"
+      @id_table = {}
+      messages.each do |m|
+        @logger.debug "message-id: #{m.message_id}"
         
         # 1A retrieve container or create a new one
-        parent_container = get_container_by_id(message_id)
-        parent_container.message = message
+        parent_container = get_container_by_id(m.message_id)
+        parent_container.message = m
               
         # 1B
         # for each element in the message's references field find a container  
-        refs = message.references
+        refs = m.references
         
         prev = nil
         # Link the References field's Containers together in the

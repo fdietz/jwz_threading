@@ -22,14 +22,14 @@ class Main
     mailbox = TMail::UNIXMbox.new(MBOX_FILE, nil, true)
     
     logger.info "creating list of input mails"
-    messages = {}
+    messages = []
     counter = 0
     mailbox.each_port do |port|
       mail = TMail::Mail.new(port)
         
       m = MailHelper::MessageFactory.create(mail.subject, mail.message_id, mail.in_reply_to, mail.references)
       m.from = mail.from
-      messages[mail.message_id] = m
+      messages << m
       counter += 1
       puts "#{counter}"
     end
