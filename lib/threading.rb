@@ -59,8 +59,8 @@ module MailHelper
       @logger = Logging::Logger[self]
       @logger.level = :error
       @logger.add_appenders(
-        Logging::Appender.stdout
-        #Logging::Appenders::File.new('example.log')
+        #Logging::Appender.stdout
+        Logging::Appenders::File.new('example.log')
       )
     end
   
