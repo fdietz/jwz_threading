@@ -7,7 +7,6 @@ require 'test/unit'
 require 'rubygems'
 require 'lib/threading'
 require 'logging'
-require 'spec/debug'
 
 class Test::Unit::TestCase  
   # test "verify something" do

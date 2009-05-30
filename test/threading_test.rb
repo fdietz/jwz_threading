@@ -52,7 +52,6 @@ class ThreadingTest < Test::Unit::TestCase
     log = Logging::Logger['Threading']
     log.level = :info
       
-    @debug = MailHelper::Debug.new
     @message_parser = MailHelper::MessageParser.new
   end
   
