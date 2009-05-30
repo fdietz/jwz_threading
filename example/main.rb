@@ -14,8 +14,8 @@ class Main
     logger = Logging::Logger['MailHelper::Threading']
     #logger.level = :debug
     logger.add_appenders(
-      Logging::Appender.stdout
-      #Logging::Appenders::File.new('example.log')
+      #Logging::Appender.stdout
+      Logging::Appenders::File.new('example.log')
     )
     
     logger.info "parsing mailbox... #{MBOX_FILE}"
