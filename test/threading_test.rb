@@ -12,25 +12,25 @@ class ThreadingTest < Test::Unit::TestCase
   # create message hash of yaml file
   # hash key is message_id
   # hash value the message with subject, message and references attributes
-  def self.parse_inbox(path)
-    yaml = File.open(path) {|f| YAML.load(f)}
-
-    messages = Hash.new
-    yaml.each do |key, value|
-      ref = value["references"]
-      if !ref 
-        ref = []
-      end   
-    m = MailHelper::Message.new(value["subject"], key, ref)
-    messages[key] = m
-  end
-
-  messages
-  end
-  
-  def parse_messages(file)
-    messages = parse_inbox path_helper("/#{file}")
-  end
+  # def self.parse_inbox(path)
+  #   yaml = File.open(path) {|f| YAML.load(f)}
+  # 
+  #   messages = Hash.new
+  #   yaml.each do |key, value|
+  #     ref = value["references"]
+  #     if !ref 
+  #       ref = []
+  #     end   
+  #   m = MailHelper::Message.new(value["subject"], key, ref)
+  #   messages[key] = m
+  # end
+  # 
+  # messages
+  # end
+  # 
+  # def parse_messages(file)
+  #   messages = parse_inbox path_helper("/#{file}")
+  # end
   
   def message(subject, message_id, references)
     MailHelper::Message.new(subject, message_id, references)
@@ -109,17 +109,6 @@ class ThreadingTest < Test::Unit::TestCase
     assert_equal 0, child_count(id_table, "e")
   end
     
-  def child_count(id_table, id)
-    id_table[id].children.size
-  end
-  
-  def child_message_id(id_table, id, child_index)
-    child(id_table, id, child_index).message.message_id
-  end
-  
-  def child(id_table, id, child_index)
-    id_table[id].children[child_index]
-  end
   #
   # a
   # +- b
@@ -139,31 +128,22 @@ class ThreadingTest < Test::Unit::TestCase
   #
   test" should create id_table for each message and dummy containers in case of"+
   " reference to non-existent message" do
-    messages = []
-    messages << message("subject", "a", "")
-    messages << message("subject", "b", "a")
-    # message "c" is the dummy
-    messages << message("subject", "d", ["a", "b", "c"])
-    messages << message("subject", "e", "d")
- 
+    messages = [
+                message("subject", "a", ""),
+                message("subject", "b", "a"),
+                # message "c" is the dummy
+                message("subject", "d", ["a", "b", "c"]),
+                message("subject", "e", "d")
+              ]
     # calling private method here
     id_table = @thread.send(:create_id_table, messages)
     
-    id_table.should have(5).items
-    id_table["a"].children.should have(1).item
-    id_table["a"].children[0].message.message_id == "b"
-    
-    # dummy "c" checked
-    id_table["b"].children.should have(1).items
-    id_table["b"].children[0].message.should be_nil
-
-    id_table["c"].children.should have(1).item
-    id_table["c"].children[0].message.message_id == "d"
-    
-    id_table["d"].children.should have(1).item
-    id_table["d"].children[0].message.message_id == "e"
-    
-    id_table["e"].children.should be_empty  
+    assert_equal 5, id_table.size
+    assert_equal "b", child_message_id(id_table, "a", 0)
+    assert id_table["c"].dummy?
+    assert_equal "d", child_message_id(id_table, "c", 0)
+    assert_equal "e", child_message_id(id_table, "d", 0)
+    assert id_table["e"].children.empty?
   end
   
   #
@@ -188,38 +168,26 @@ class ThreadingTest < Test::Unit::TestCase
   #  
   test" should create id_table for each message and nested dummy containers in case of"+
   " references to non-existent messages" do
-    messages = []
-    messages << message("subject", "a", "")
-    messages << message("subject", "b", "a")
-    # message "c" is the dummy
-    messages << message("subject", "d", ["a", "b", "c"])
-    # message "y" and "z" is a dummy
-    messages << message("subject", "e", ["z", "y", "d"])
- 
+    messages = [
+                message("subject", "a", ""),
+                message("subject", "b", "a"),
+                # message "c" is the dummy
+                message("subject", "d", ["a", "b", "c"]),
+                # message "y" and "z" is a dummy
+                message("subject", "e", ["z", "y", "d"])
+              ]
     # calling private method here
     id_table = @thread.send(:create_id_table, messages)
- 
-    id_table.should have(7).items
-    id_table["a"].children.should have(1).item
-    id_table["a"].children[0].message.message_id == "b"
-    
-    # dummy "c" checked
-    id_table["b"].children.should have(1).items
-    id_table["b"].children[0].should be_dummy
 
-    id_table["c"].should be_dummy
-    id_table["c"].children.should have(1).item
-    id_table["c"].children[0].message.message_id == "d"
-    
-    id_table["z"].children.should have(1).item
-    id_table["z"].children[0].should be_dummy
-    
-    id_table["y"].children.should be_empty
-    
-    id_table["d"].children.should have(1).item
-    id_table["d"].children[0].message.message_id == "e"
-    
-    id_table["e"].children.should be_empty  
+    assert_equal 7, id_table.size
+    assert_equal "b", child_message_id(id_table, "a", 0)
+    assert id_table["c"].dummy?
+    assert_equal "d", child_message_id(id_table, "c", 0)
+    assert id_table["z"].dummy?
+    assert id_table["y"].dummy?
+    assert id_table["y"].children.empty?
+    assert_equal "e", child_message_id(id_table, "d", 0)
+    assert id_table["e"].children.empty?
   end
   
   #
@@ -245,11 +213,10 @@ class ThreadingTest < Test::Unit::TestCase
     # calling private method here
     @thread.send(:prune_empty_containers, root)
     
-    root.children.should have(1).item
-    root.children[0].should == container_a
-    container_a.children.should have(1).item
-    container_a.children[0].should == container_b
-    container_b.children.should be_empty
+    assert_equal container_a, root.children.first
+    assert_equal 1, container_a.children.size
+    assert_equal container_b, container_a.children.first
+    assert container_b.children.empty?
   end
   
   # 
@@ -279,10 +246,10 @@ class ThreadingTest < Test::Unit::TestCase
     # calling private method here
     @thread.send(:prune_empty_containers, root)
     
-    root.children.should have(1).items
-    root.children[0].should == container_a
-    container_a.children[0] == container_b
-    container_b.children[0].children[0] == container_c
+    assert_equal 1, root.children.size
+    assert_equal container_a, root.children.first
+    assert_equal container_b, container_a.children.first
+    assert_equal container_c, container_b.children.first
   end
   
   #
@@ -310,9 +277,9 @@ class ThreadingTest < Test::Unit::TestCase
     # calling private method here
     @thread.send(:prune_empty_containers, root)
     
-    root.children.should have(2).items
-    root.children[0].should == container_a
-    root.children[1].should == container_b
+    assert_equal 2, root.children.size
+    assert_equal container_a, root.children.first
+    assert_equal container_b, root.children[1]
   end
   
   #
@@ -343,13 +310,13 @@ class ThreadingTest < Test::Unit::TestCase
     
     # calling private method here
     @thread.send(:prune_empty_containers, root)
-    
-    root.children.should have(2).items
-    root.children[0].should == container_a
-    root.children[1].should be_dummy
-    container_z.children.should have(2).items
-    container_z.children[0].should == container_b
-    container_z.children[1].should == container_c
+
+    assert_equal 2, root.children.size
+    assert_equal container_a, root.children.first
+    assert root.children[1].dummy?
+    assert_equal 2, container_z.children.size
+    assert_equal container_b, container_z.children.first
+    assert_equal container_c, container_z.children[1]
   end
   
   
@@ -390,13 +357,14 @@ class ThreadingTest < Test::Unit::TestCase
     # calling private method here
     @thread.send(:prune_empty_containers, root)
     
-    root.children.should have(2).items
-    root.children[0].should == container_a
-    root.children[1].should be_dummy
-    root.children[1].children.should have(3).items
-    root.children[1].children[0].should == container_d
-    root.children[1].children[1].should == container_c
-    root.children[1].children[2].should == container_b
+
+    assert_equal 2, root.children.size
+    assert_equal container_a, root.children.first
+    assert root.children[1].dummy?
+    assert_equal 3, root.children[1].children.size
+    assert_equal container_d, root.children[1].children.first
+    assert_equal container_c, root.children[1].children[1]
+    assert_equal container_b, root.children[1].children[2]
   end
   
   
@@ -441,13 +409,13 @@ class ThreadingTest < Test::Unit::TestCase
     # calling private method here
     @thread.send(:prune_empty_containers, root)
     
-    root.children.should have(2).items
-    root.children[0].should == container_a
-    root.children[1].should be_dummy
-    container_z.children.should have(3).items
-    container_z.children[0].should == container_d
-    container_z.children[1].should == container_b
-    container_z.children[2].should == container_c
+    assert_equal 2, root.children.size
+    assert_equal container_a, root.children.first
+    assert root.children[1].dummy?
+    assert_equal 3, container_z.children.size
+    assert_equal container_d, container_z.children.first
+    assert_equal container_b, container_z.children[1]
+    assert_equal container_c, container_z.children[2]
   end
   
   #
@@ -474,9 +442,10 @@ class ThreadingTest < Test::Unit::TestCase
     # calling private methodhere
     @thread.send(:prune_empty_containers, root)
     
-    root.children.should have(1).item
-    root.children[0].should == container_a
-    container_a.children.should be_empty
+
+    assert_equal 1, root.children.size
+    assert_equal container_a, root.children.first
+    assert container_a.children.empty?
   end
   
   #
@@ -523,13 +492,13 @@ class ThreadingTest < Test::Unit::TestCase
     # calling private method here
     @thread.send(:prune_empty_containers, root)
 
-    root.children.should have(1).item
-    root.children[0].should == container_z
-    container_z.children.should have(2).items
-    container_z.children[0].should == container_c
-    container_z.children[1].should == container_a
-    container_a.children[0].should == container_b
-    container_c.children[0].should == container_d
+    assert_equal 1, root.children.size
+    assert_equal container_z, root.children.first
+    assert_equal 2, container_z.children.size
+    assert_equal container_c, container_z.children.first
+    assert_equal container_a, container_z.children[1]
+    assert_equal container_b, container_a.children.first
+    assert_equal container_d, container_c.children.first
   end
   
 
@@ -598,17 +567,16 @@ class ThreadingTest < Test::Unit::TestCase
     
     # calling private method here
     @thread.send(:prune_empty_containers, root)
-    
-    root.children.should have(1).item
-    root.children[0].should == container_z
-    container_z.children.should have(4).items
-    container_z.children[0].should == container_f
-    container_z.children[1].should == container_e
-    container_z.children[2].should == container_c
-    container_z.children[3].should == container_a
-    
-    container_a.children[0].should == container_b
-    container_c.children[0].should == container_d
+
+    assert_equal 1, root.children.size
+    assert_equal container_z, root.children.first
+    assert_equal 4, container_z.children.size
+    assert_equal container_f,container_z.children.first
+    assert_equal container_e, container_z.children[1]
+    assert_equal container_c, container_z.children[2]
+    assert_equal container_a, container_z.children[3]
+    assert_equal container_b, container_a.children.first
+    assert_equal container_d, container_c.children.first
   end
   
   #
@@ -637,16 +605,17 @@ class ThreadingTest < Test::Unit::TestCase
 
     # calling private method here
     subject_hash = @thread.send(:group_root_set_by_subject, root)
+
+    assert subject_hash.key?("subject_a")
+    assert subject_hash.key?("subject_z")
+  
+    assert_equal 2, root.children.size
+    assert container_a, root.children.first
+    assert container_d, root.children[1]
     
-    subject_hash.key?("subject_a").should == true
-    subject_hash.key?("subject_z").should == true
-    
-    root.children.should have(2).items
-    root.children[0].should == container_a
-    root.children[1].should == container_d
-    container_d.children.should have(2).items
-    container_d.children[0].should == container_c
-    container_d.children[1].should == container_b
+    assert_equal 2, container_d.children.size
+    assert_equal container_c, container_d.children.first
+    assert_equal container_b, container_d.children[1]
   end
  
   #
@@ -674,21 +643,19 @@ class ThreadingTest < Test::Unit::TestCase
     container_d = container("subject_z", "d", [])
     root.add_child container_d
 
-    #@debug.print_tree(root)        
     # calling private method here
     subject_hash = @thread.send(:group_root_set_by_subject, root)
-    #@debug.print_subject_hash(subject_hash)
-    #@debug.print_tree(root)
     
-    subject_hash.key?("subject_a").should == true
-    subject_hash.key?("subject_z").should == true
-    
-    root.children.should have(2).items
-    root.children[0].should == container_a
-    root.children[1].should == container_d
-    container_d.children.should have(2).items
-    container_d.children[0].should == container_c
-    container_d.children[1].should == container_b
+    assert subject_hash.key?("subject_a")
+    assert subject_hash.key?("subject_z")
+
+    assert_equal 2, root.children.size
+    assert_equal container_a, root.children.first
+    assert_equal container_d, root.children[1]
+
+    assert_equal 2, container_d.children.size
+    assert_equal container_c, container_d.children.first
+    assert_equal container_b, container_d.children[1]
   end
 
   test" should create tree based on message-IDs and references" do    
@@ -700,46 +667,25 @@ class ThreadingTest < Test::Unit::TestCase
     messages << message("subject", "e", "d")
     
     root = @thread.thread(messages)
-    
-    root.children.should have(1).items
-    root.children[0].message.message_id == "a"
-    root.children[0].children[0].message.message_id == "b"
-    root.children[0].children[0].children[0].message.message_id == "c"
-    root.children[0].children[0].children[0].children[0].message.message_id == "d"
-    root.children[0].children[0].children[0].children[0].children[0].message.message_id == "e"
+
+    assert_equal 1, root.children.size
+    assert_equal "a", root.children.first.message.message_id
+    assert_equal "b", root.children.first.children.first.message.message_id
+    assert_equal "c", root.children.first.children.first.children.first.message.message_id
+    assert_equal "d", root.children.first.children.first.children.first.children.first.message.message_id
+    assert_equal "e", root.children.first.children.first.children.first.children.first.children.first.message.message_id
   end
   
-  # test" should create tree based on message-IDs and references and on Subject" do    
-  #     messages = Hash.new
-  #     messages["a"] = message("subject", "a", "")
-  #     messages["b"] = message("subject", "b", "a")
-  #     messages["c"] = message("subject", "c", ["a", "b"])
-  #     messages["d"] = message("subject", "d", ["a", "b", "c"])
-  #     messages["e"] = message("subject", "e", "d")
-  #     messages["f"] = message("Hello", "f", "")
-  #     messages["g"] = message("Re:Hello", "g", "")
-  #     messages["h"] = message("Re:Hello", "h", "")            
-  #     messages["i"] = message("Fwd:Hello", "i", "")
-  #     messages["j"] = message("Re:Re: Hello", "j", "")            
-  #     
-  #     root = @thread.thread(messages)
-  #     #subject_hash = @thread.group_root_set_by_subject(root)  
-  #     #@debug.print_subject_hash subject_hash
-  #     @debug.print_tree(root)
-  #     
-  #     root.children.should have(2).items
-  #     root.children[0].message.message_id == "a"
-  #     root.children[0].children[0].message.message_id == "b"
-  #     root.children[0].children[0].children[0].message.message_id == "c"
-  #     root.children[0].children[0].children[0].children[0].message.message_id == "d"
-  #     root.children[0].children[0].children[0].children[0].children[0].message.message_id == "e"
-  #     
-  #     root.children[1].message.message_id == "f"
-  #     root.children[1].children[0].message.message_id == "j"
-  #     root.children[1].children[1].message.message_id == "i"
-  #     root.children[1].children[2].message.message_id == "h"
-  #     root.children[1].children[3].message.message_id == "g"
-  #   end
-  #   
+  def child_count(id_table, id)
+    id_table[id].children.size
+  end
+  
+  def child_message_id(id_table, id, child_index)
+    child(id_table, id, child_index).message.message_id
+  end
+  
+  def child(id_table, id, child_index)
+    id_table[id].children[child_index]
+  end
   
 end
