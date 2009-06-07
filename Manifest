@@ -1,0 +1,14 @@
+CHANGELOG
+example/main.rb
+example/test1.mbox
+jwz_threading.gemspec
+lib/jwz_threading/version.rb
+lib/threading.rb
+MIT-LICENSE
+Rakefile
+README
+setup.rb
+test/message_parser_test.rb
+test/test_helper.rb
+test/threading_test.rb
+Manifest
