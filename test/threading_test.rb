@@ -9,28 +9,6 @@ class ThreadingTest < Test::Unit::TestCase
     File.dirname(__FILE__) + file
   end
   
-  # create message hash of yaml file
-  # hash key is message_id
-  # hash value the message with subject, message and references attributes
-  # def self.parse_inbox(path)
-  #   yaml = File.open(path) {|f| YAML.load(f)}
-  # 
-  #   messages = Hash.new
-  #   yaml.each do |key, value|
-  #     ref = value["references"]
-  #     if !ref 
-  #       ref = []
-  #     end   
-  #   m = MailHelper::Message.new(value["subject"], key, ref)
-  #   messages[key] = m
-  # end
-  # 
-  # messages
-  # end
-  # 
-  # def parse_messages(file)
-  #   messages = parse_inbox path_helper("/#{file}")
-  # end
   
   def message(subject, message_id, references)
     MailHelper::Message.new(subject, message_id, references)
@@ -47,11 +25,7 @@ class ThreadingTest < Test::Unit::TestCase
   ########### helper methods: end
   
   def setup
-    @thread = MailHelper::Threading.new
-    # change log level
-    log = Logging::Logger['Threading']
-    log.level = :info
-      
+    @thread = MailHelper::Threading.new    
     @message_parser = MailHelper::MessageParser.new
   end
   

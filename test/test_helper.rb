@@ -6,7 +6,6 @@ lib_path = File.expand_path(File.join(dir, '..', 'lib'))
 require 'test/unit'
 require 'rubygems'
 require 'lib/threading'
-require 'logging'
 
 class Test::Unit::TestCase  
   # test "verify something" do

@@ -1,8 +1,5 @@
-#!/user/bin/ruby
-  
+#!/user/bin/ruby  
 require 'rubygems'
-require 'uuid'
-require 'logger'
 
 module MailHelper
   
@@ -48,22 +45,14 @@ module MailHelper
   # 
   class Threading
  
-    # has associates message-IDs with containers for messages
-    @id_table = {}
-    
-    # root node of tree hierachy
-    @root = nil
-    
-    # Init logger
     def initialize
-      @logger = Logging::Logger[self]
-      @logger.level = :error
-      @logger.add_appenders(
-        #Logging::Appender.stdout
-        Logging::Appenders::File.new('example.log')
-      )
+      # has associates message-IDs with containers for messages
+      @id_table = {}
+
+      # root node of tree hierachy
+      @root = nil
     end
-  
+    
     # Execute the threading algorithm
     # Input Parameters: Array of MailHelper::Message 
     #
@@ -72,14 +61,11 @@ module MailHelper
     #   * check what happens in case of two messages with equal message-ID
     #
      def thread(messages)
-       @logger.info "jwz threading algorithm executing"
-
        # create id_table
        @id_table = create_id_table(messages)
 
        # create root hierachy siblings out of containers with zero children
        # TODO: would probably be nicer to use a list instead of empty root node
-       @logger.info "create root hierachy for all containers with no parent"
        root = Container.new()
        @id_table.each_pair { |message_id, container| root.add_child(container) if container.parent.nil? }
        
@@ -113,20 +99,15 @@ module MailHelper
     # create hash 
     # key = message_id, value = message
     # input parameter: messages: Array
-    def create_id_table(messages)
-      @logger.info "create id_table hash"
-      
+    def create_id_table(messages)      
       @id_table = {}
       messages.each do |m|
-        @logger.debug "message-id: #{m.message_id}"
-        
         # 1A retrieve container or create a new one
         parent_container = get_container_by_id(m.message_id)
         parent_container.message = m
               
         # 1B
         # for each element in the message's references field find a container  
-        #refs = m.references
         
         prev = nil
         # Link the References field's Containers together in the
@@ -145,70 +126,16 @@ module MailHelper
         
         # C. Set the parent of this message to be the last element in References
         prev.add_child(parent_container) if prev and !parent_container.has_descendant?(prev)
-        #if (prev and (!parent_container.has_descendant?(prev)))
-          # TODO: check if parent_container is a child of anyone else
-          # " do we really have to?"
-          
-          # Make sure thiscontainer isn't already a child of *anything*.
-          # id_table.each { |id,mesg|
-          #             mesg.children.delete_if { |c|
-          #               c.message.message_id == parent_container.message.message_id
-          #             }
-          #           }
-          
-          #prev.add_child(parent_container)
-        #end
       end
       
-        # prev = nil  
-        #         message.references.each do |reference_id|
-        #           @logger.debug "- 1B check reference id #{reference_id}"
-        #         
-        #           # retrieve container or create a new empty one
-        #           ref_container = get_container_by_id(id_table, reference_id)
-        #                 
-        #           unless prev.nil?
-        #             # don't create a loop
-        #             if ref_container == parent_container
-        #               @logger.debug "- 1B ref_container == parent_container -> skip since we don't want create a loop!"
-        #               next
-        #             end
-        #   
-        #             if ref_container.has_descendant(prev) 
-        #             # check both instead
-        #             #if ref_container.has_descendant(prev) || prev.has_descendant(ref_container)
-        #              @logger.debug "- 1B ref_container already has descendants!"
-        #               next
-        #             end
-        # 
-        #             prev.add_child(ref_container)
-        #             @logger.debug "- 1B added ref_container to prev"
-        #           end
-        # 
-        # 
-        #           prev = ref_container
-        #           @logger.debug "- 1B prev = ref_container"
-        #         end    
-        # 
-        #         unless prev.nil?
-        #           @logger.debug "- 1B added parent_container to prev"
-        #           prev.add_child(parent_container)
-        #         end
-        #         
-        #       end
-        
       @id_table
     end
-  
  
   
     # recursively traverse all containers under root and remove dummy containers
     def prune_empty_containers(parent)
-     @logger.info "prune empty containers"
     
       parent.children.reverse_each do |container|
-        #for container in parent.children
-        @logger.debug "traversing #{container.object_id}"
      
         # recursively do the same
         prune_empty_containers(container)
@@ -217,16 +144,14 @@ module MailHelper
         if dummy_message_without_children?(container)
           # delete container
           parent.remove_child(container)
-          @logger.debug "#{container.object_id }:remove dummy with no children #{container.object_id}"
         # If it is a dummy message with children, delete it  
         elsif container.dummy? #&& ( not container.children.empty? )
           # Do not promote the children if doing so would make them
           # children of the root, unless there is only one child.
-          if root_and_container_has_single_child(parent, container)
+          if root?(parent) && container.children.size == 1
             promote_container_children_to_current_level(parent, container)
-          elsif root_and_container_has_more_than_one_children(parent, container)
+          elsif root?(parent) && container.children.size > 1
             # do not promote its children
-            @logger.debug "#{container.object_id }:do not promote children"
           else
             promote_container_children_to_current_level(parent, container)
           end
@@ -234,33 +159,22 @@ module MailHelper
       end 
     end
     
-    def root_and_container_has_single_child(parent, container)
-      root?(parent) && container.children.size == 1
-    end
-    
-    def root_and_container_has_more_than_one_children(parent, container)
-      root?(parent) && container.children.size > 1
-    end
-    
     def root?(parent)
       parent.parent.nil?
     end
     
     def dummy_message_without_children?(container)
-      container.message.nil? && container.children.empty?
+      container.dummy? && container.children.empty?
     end
     
     # promote container's children to current level 
     def promote_container_children_to_current_level(parent, container)
       container.children.reverse_each {|c| parent.add_child(c) } 
-      @logger.debug "#{container.object_id }: promote children to current level #{container.children.size}"
       parent.remove_child(container)
     end
       
     # group root set by subject
     def group_root_set_by_subject(root)
-      @logger.info "group root set by subject"
-    
       subject_table = {}
     
       # 5B
@@ -394,7 +308,11 @@ module MailHelper
     def dummy?
       @message.nil?
     end
-  
+
+    def children?
+      !@children.empty?
+    end
+    
     def add_child(child)
       child.parent.remove_child(child) unless child.parent.nil?
     
@@ -417,6 +335,13 @@ module MailHelper
       
       false
     end
+    
+    def to_s
+      str = self.dummy? ? "#{self.object_id} (dummy)" : "#{@message}"
+      str << "(#{@children.size})" if self.children?  
+      str
+    end
+    
   end
 
   # Lightweight Message for the minimal used message attributes
@@ -439,6 +364,10 @@ module MailHelper
       # - not for this algorithm to function!
       @from = ""
     end
+    
+    def to_s
+      "#{@from}:#{@subject}"
+    end
   end
 
   # Factory for creating messages. Ensures consistent data required
@@ -454,13 +383,10 @@ module MailHelper
       # use the first found message-ID of the in-reply-to header instead
       references << in_reply_to.first if references.empty? && !in_reply_to.empty?
   
-      # generate UUID instead
-      # FIXME: this is no RFC822 compliant message id!
-      message_id ||= UUID.new
+      message_id ||= ::TMail::new_msgid()
       
       Message.new(subject, message_id, references)
     end
-  
   end
 
   # MessageParser provides helpers for parsing RFC822 headers

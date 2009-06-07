@@ -1,6 +1,5 @@
 require File.join(File.dirname(__FILE__), 'test_helper')
 
-
 class MessageParserTest < Test::Unit::TestCase
 
   test "should not normalize subject cause no prefix to remove exists" do
@@ -75,12 +74,12 @@ class MessageParserTest < Test::Unit::TestCase
     assert_equal "Subject", result
   end
 
-  test "should check if subject is starting wtesth re or fwd" do
+  test "should check if subject is starting with re or fwd" do
     subject = "Fwd: Subject"
     assert MailHelper::MessageParser.is_reply_or_forward(subject)
   end
 
-  test "should check if subject is starting with re or fwd" do
+  test "should return false since subject doesn't have any prefix" do
     subject = "Subject"
     assert !MailHelper::MessageParser.is_reply_or_forward(subject)
   end

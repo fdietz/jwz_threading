@@ -1,7 +1,5 @@
 = jwz_threading
 
-Website: http://fdietz.wordpress.com/projects
-
 jwz_threading is a small ruby library which lets you order a list of E-Mails by conversation.
 That is, grouping messages together in parent/child relationships based on which 
 messages are replies to which others.
@@ -16,7 +14,6 @@ http://www.jwz.org/doc/draft-ietf-imapext-thread-12.txt
 Ruby 1.8.* (not yet tested on Ruby 1.9.*)
 
 Requires the following Ruby gems:
-* Logger (http://logging.rubyforge.org)
 * TMail (http://tmail.rubyforge.org)
 
 Only tested on OS X
@@ -58,32 +55,34 @@ To generate new rdocs, type this:
 
 == Status
 
-This package is currently ALPHA and therefore considered to be 
+This package is currently BETAS and therefore considered to be 
 changed heavily in the near future. I very much appreciate suggestions 
 and comments. 
 
 == Tests
 
-All tests can be found in /spec directory. 
+All tests can be found in /test directory. 
 
-To run all specs, type this:
+To run all tests, type this:
    
-     $ rake spec
+     $ rake test
 
-This will also automatically generate a rcov report in doc/rcov subdirectory.
-
-To generate an rspec html report in doc/spec subdirectory, type this:
-  
-     $ rake spec_html
-
-Documentation for rspec can be found here: http://rspec.info
+To run a code coverage report, type:
+ 
+     $ rake rcov
 
 Documentation for rcov can be found here http://eigenclass.org/hiki/rcov
+
+== RDocs
+
+To generate up-to-date rdocs, type:
+
+     $ rake rdoc
 
 == Contact
 
 * Author: Frederik Dietz
-* Website: http://fdietz.wordpress.com
+* Website: http://github.com/fdietz/jwz_threading
 * E-Mail: fdietz@gmail.com 
 
 == License
